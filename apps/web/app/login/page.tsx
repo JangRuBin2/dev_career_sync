@@ -1,5 +1,10 @@
+import { redirect } from "next/navigation";
+import { devBypass } from "@/lib/session";
+
 export default async function LoginPage({ searchParams }: { searchParams: Promise<{ next?: string; error?: string }> }) {
   const { next = "/dashboard", error } = await searchParams;
+  // 로컬에서 로그인 생략이 켜져 있으면 바로 대시보드로
+  if (devBypass()) redirect(next.startsWith("/") ? next : "/dashboard");
   return (
     <main className="mx-auto flex min-h-screen max-w-sm flex-col justify-center px-4">
       <div className="rounded-xl border border-line bg-surface p-6">

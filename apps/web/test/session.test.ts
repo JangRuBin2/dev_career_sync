@@ -28,3 +28,13 @@ describe("session", () => {
     await expect(signSession({ githubId: "1", login: "a" })).rejects.toThrow("32자");
   });
 });
+
+import { isTruthyEnv } from "../lib/session";
+describe("isTruthyEnv", () => {
+  it("다양한 표기를 켜짐으로", () => {
+    for (const v of ["1", "true", " 1 ", "1   # 메모", '"1"', "TRUE", "yes"]) expect(isTruthyEnv(v)).toBe(true);
+  });
+  it("그 외는 꺼짐", () => {
+    for (const v of [undefined, "", "0", "false", "#1", "no"]) expect(isTruthyEnv(v)).toBe(false);
+  });
+});

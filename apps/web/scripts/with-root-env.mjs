@@ -19,6 +19,13 @@ const [command = "dev", ...args] = process.argv.slice(2);
 
 const { loadedEnvFiles } = nextEnv.loadEnvConfig(rootDir, command === "dev", { info() {}, error: console.error });
 if (loadedEnvFiles.length) console.log(`- Root env: ${loadedEnvFiles.map((f) => f.path).join(", ")}`);
+else console.log(`- Root env: 없음 (${path.join(rootDir, ".env")} 파일을 찾지 못했어요)`);
+if (command === "dev") {
+  const raw = process.env.DEV_BYPASS_AUTH;
+  const on = ["1", "true", "yes", "on"].includes((raw ?? "").trim().split(/\s/)[0]?.toLowerCase() ?? "");
+  console.log(on ? "- 로그인 생략(DEV_BYPASS_AUTH): 켜짐 → http://localhost:3000/dashboard" : `- 로그인 생략(DEV_BYPASS_AUTH): 꺼짐${raw ? ` (현재 값: "${raw}")` : ""}`);
+  if (process.env.NOTION_BASE_URL) console.log(`- ⚠️ NOTION_BASE_URL=${process.env.NOTION_BASE_URL} → 실제 Notion 이 아니라 가짜 서버로 연결돼요`);
+}
 
 const nextBin = createRequire(path.join(appDir, "package.json")).resolve("next/dist/bin/next");
 const child = spawn(process.execPath, [nextBin, command, ...args], { cwd: appDir, stdio: "inherit", env: process.env });

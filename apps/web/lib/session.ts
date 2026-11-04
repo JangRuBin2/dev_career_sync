@@ -43,5 +43,11 @@ export const sessionCookieOptions = {
   maxAge: MAX_AGE_SEC,
 };
 
-/** 로컬 개발에서만 인증 우회 (DEV_BYPASS_AUTH=1) */
-export const devBypass = () => process.env.NODE_ENV !== "production" && process.env.DEV_BYPASS_AUTH === "1";
+/** "1", "true", "1 # 메모" 처럼 적어도 켜진 것으로 본다 */
+export function isTruthyEnv(v: string | undefined): boolean {
+  const first = (v ?? "").trim().replace(/^["']|["']$/g, "").split(/\s/)[0]?.toLowerCase() ?? "";
+  return ["1", "true", "yes", "on"].includes(first);
+}
+
+/** 로컬 개발에서만 인증 우회 (DEV_BYPASS_AUTH=1). 프로덕션(Vercel)에서는 항상 꺼짐 */
+export const devBypass = () => process.env.NODE_ENV !== "production" && isTruthyEnv(process.env.DEV_BYPASS_AUTH);
