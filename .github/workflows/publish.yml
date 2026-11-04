@@ -1,9 +1,10 @@
-name: velog publish
+name: velog publish (disabled)
 
-# 매시 7분: 예약 시각이 지난 글 처리 (검토완료 X → 임시저장만)
+# ⏸ 자동 발행은 현재 사용하지 않아요 (초안 작성까지만 자동화, 발행은 직접).
+# 다시 쓰려면: 아래 schedule 주석을 풀고 Variables 에 AUTO_PUBLISH=1, Secrets 에 VELOG 토큰을 등록하세요.
 on:
-  schedule:
-    - cron: "7 * * * *"
+  # schedule:
+  #   - cron: "7 * * * *"
   workflow_dispatch:
 
 concurrency: careersync-notion
@@ -28,6 +29,7 @@ jobs:
       REVALIDATE_SECRET: ${{ secrets.REVALIDATE_SECRET }}
       VELOG_ACCESS_TOKEN: ${{ secrets.VELOG_ACCESS_TOKEN }}
       VELOG_REFRESH_TOKEN: ${{ secrets.VELOG_REFRESH_TOKEN }}
+      AUTO_PUBLISH: ${{ vars.AUTO_PUBLISH }}
       PUBLIC_IMAGE_HOSTS: ${{ vars.PUBLIC_IMAGE_HOSTS || 'public.blob.vercel-storage.com' }}
     steps:
       - uses: actions/checkout@v4

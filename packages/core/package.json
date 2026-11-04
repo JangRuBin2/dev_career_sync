@@ -7,7 +7,8 @@
     ".": "./src/index.ts",
     "./notion": "./src/notion/index.ts",
     "./velog": "./src/velog/index.ts",
-    "./llm": "./src/llm/index.ts"
+    "./llm": "./src/llm/index.ts",
+    "./publish": "./src/publish/index.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",
@@ -22,6 +23,7 @@
     "@anthropic-ai/sdk": "1.4.0",
     "@notionhq/client": "5.30.0",
     "fast-xml-parser": "5.12.0",
+    "marked": "18.1.3",
     "zod": "4.6.7"
   }
 }

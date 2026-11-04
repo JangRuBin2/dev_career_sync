@@ -1,4 +1,5 @@
 /**
+ * [비활성화] 예약 자동 발행 — AUTO_PUBLISH=1 일 때만 동작
  * 예약 발행 (매시 실행)
  * 검토완료 X → 임시저장만 / 검토완료 O → 지정 모드
  * 비공개 이미지·금지어가 남아 있으면 발행 차단
@@ -8,6 +9,11 @@ import { VelogApiError, VelogClient, decidePublish, findNonPublicImages } from "
 import { denylist, isDryRun, makeRepo, required, revalidateWeb, run } from "./env";
 
 run(async () => {
+  // 현재 운영 방식은 "초안 자동 작성 + 직접 발행". velog 비공식 API 자동 발행은 보존만 하고 꺼 둔다.
+  if (process.env.AUTO_PUBLISH !== "1") {
+    console.log("자동 발행이 비활성화돼 있어요 (AUTO_PUBLISH=1 로 켤 수 있음). 종료합니다.");
+    return;
+  }
   const repo = makeRepo();
   const rules = denylist();
   const publicHosts = (process.env.PUBLIC_IMAGE_HOSTS ?? "public.blob.vercel-storage.com").split(",").map((s) => s.trim());

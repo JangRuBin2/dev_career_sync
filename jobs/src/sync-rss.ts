@@ -22,10 +22,15 @@ run(async () => {
       continue;
     }
     if (!match) {
-      await repo.createPublishedPost({ title: item.title, url: item.link, publishedAt: item.publishedAt });
+      await repo.createPublishedPost({ title: item.title, url: item.link, publishedAt: item.publishedAt, platform: "velog" });
       created++;
     } else if (match.status !== "발행됨" || !match.velogUrl) {
-      await repo.updatePost(match.id, { status: "발행됨", velogUrl: item.link, ...(item.publishedAt ? { publishedAt: item.publishedAt } : {}) });
+      await repo.updatePost(match.id, {
+        status: "발행됨",
+        velogUrl: item.link,
+        platforms: [...new Set([...match.platforms, "velog"])],
+        ...(item.publishedAt ? { publishedAt: item.publishedAt } : {}),
+      });
       updated++;
     }
   }

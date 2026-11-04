@@ -108,6 +108,7 @@ export interface Post {
   velogUrl: string | null;
   publishedAt: string | null;
   error: string;
+  platforms: string[];
   projectIds: string[];
   attachmentIds: string[];
 }

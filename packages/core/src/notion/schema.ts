@@ -123,6 +123,7 @@ export const P = {
     url: "URL",
     publishedAt: "발행일",
     error: "실패 사유",
+    platforms: "발행처", // 직접 올린 블로그 (velog, 티스토리 …)
     project: "프로젝트",
     attachments: "첨부",
   },
@@ -157,7 +158,9 @@ export const OPT = {
   assignment: ["추천됨", "확인됨", "새 프로젝트", "보류", "반려"],
   exposure: ["이력서", "포트폴리오"],
   postStatus: ["소재", "초안", "검토대기", "검토완료", "임시저장됨", "발행됨", "실패"],
+  // 자동 발행(velog API) 전용 — 현재는 사용하지 않음 (AUTO_PUBLISH=1 일 때만)
   postMode: ["임시저장", "공개", "비공개"],
+  platform: ["velog", "티스토리", "네이버 블로그", "dev.to", "기타"],
   attachmentKind: ["이미지", "링크"],
   visibility: ["비공개", "공개가능"],
 } as const;
@@ -171,6 +174,7 @@ export type MetricConfidence = (typeof OPT.confidence)[number];
 export type AssignmentStatus = (typeof OPT.assignment)[number];
 export type PostStatus = (typeof OPT.postStatus)[number];
 export type PostMode = (typeof OPT.postMode)[number];
+export type Platform = (typeof OPT.platform)[number];
 export type Visibility = (typeof OPT.visibility)[number];
 export type AttachmentKind = (typeof OPT.attachmentKind)[number];
 
@@ -275,6 +279,7 @@ export const DB_SPECS: Record<DbKey, DbSpec> = {
     [P.posts.url]: { type: "url" },
     [P.posts.publishedAt]: { type: "date" },
     [P.posts.error]: { type: "rich_text" },
+    [P.posts.platforms]: { type: "multi_select", options: OPT.platform },
     [P.posts.project]: { type: "relation", target: "projects", syncedName: P.projects.posts },
     [P.posts.attachments]: { type: "relation", target: "attachments", syncedName: P.attachments.post },
   },

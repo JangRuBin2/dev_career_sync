@@ -121,6 +121,7 @@ export function toPost(page: Page): Post {
     velogUrl: r.url(p, k.url),
     publishedAt: r.date(p, k.publishedAt)?.start ?? null,
     error: r.text(p, k.error),
+    platforms: r.multiSelect(p, k.platforms),
     projectIds: r.relation(p, k.project),
     attachmentIds: r.relation(p, k.attachments),
   };

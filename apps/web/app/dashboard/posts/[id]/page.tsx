@@ -1,12 +1,25 @@
 import { ActionForm } from "@/components/action-form";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { findLeaks, parseDenylist } from "@careersync/core";
-import { decidePublish, findNonPublicImages, manualPackage } from "@careersync/core/velog";
+import { parseDenylist } from "@careersync/core";
+import { OPT } from "@careersync/core/notion";
+import { buildExport, prePublishCheck } from "@careersync/core/publish";
 import { CopyButton } from "@/components/copy-button";
-import { Badge, Button, Card, CardTitle, PageHeader, formatDateTime } from "@/components/ui";
+import { Badge, Button, Card, CardTitle, Field, PageHeader, formatShortDate } from "@/components/ui";
 import { getPost, getPostMarkdown } from "@/lib/data";
-import { savePostBodyAction } from "../../actions";
+import { markPublishedAction, savePostBodyAction } from "../../actions";
+
+function ExportRow({ label, hint, children }: { label: string; hint: string; children: React.ReactNode }) {
+  return (
+    <li className="flex items-center justify-between gap-3 py-2.5">
+      <div className="min-w-0">
+        <div className="text-sm font-medium">{label}</div>
+        <div className="text-xs text-muted">{hint}</div>
+      </div>
+      <div className="shrink-0">{children}</div>
+    </li>
+  );
+}
 
 export default async function PostDetail({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -15,16 +28,15 @@ export default async function PostDetail({ params }: { params: Promise<{ id: str
   const markdown = await getPostMarkdown(id);
 
   const publicHosts = (process.env.PUBLIC_IMAGE_HOSTS ?? "public.blob.vercel-storage.com").split(",").map((s) => s.trim());
-  const badImages = findNonPublicImages(markdown, publicHosts);
-  const leaks = findLeaks(`${post.title}\n${markdown}`, parseDenylist(process.env.DENYLIST));
-  const decision = decidePublish({ ...post, scheduledAt: post.scheduledAt ?? new Date(0).toISOString() }, new Date());
-  const pkg = manualPackage(post, markdown);
+  const check = prePublishCheck(post, markdown, parseDenylist(process.env.DENYLIST), publicHosts);
+  const ex = buildExport(post, markdown);
+  const blocked = check.leaks.length > 0 || check.nonPublicImages.length > 0;
 
   return (
     <>
       <PageHeader
         title={post.title}
-        description={`예약 ${formatDateTime(post.scheduledAt)} · 모드 ${post.mode ?? "임시저장"} · ${post.reviewed ? "검토완료" : "검토 전"}`}
+        description={`목표일 ${formatShortDate(post.scheduledAt)} · ${post.reviewed ? "검토완료" : "검토 전"}${post.platforms.length ? ` · ${post.platforms.join(", ")}` : ""}`}
         action={
           <Link href="/dashboard/posts" className="text-sm text-muted hover:text-ink">
             ← 목록
@@ -41,29 +53,67 @@ export default async function PostDetail({ params }: { params: Promise<{ id: str
             <Button variant="secondary">본문 저장 (Notion 반영)</Button>
           </ActionForm>
         </Card>
+
         <div className="space-y-4">
           <Card>
-            <CardTitle>발행 전 점검</CardTitle>
+            <CardTitle>복사 전 점검</CardTitle>
             <ul className="space-y-2 text-sm">
               <li className="flex items-start gap-2">
-                <Badge tone={post.reviewed ? "good" : "warn"}>{post.reviewed ? "OK" : "대기"}</Badge>
-                {post.reviewed ? "검토완료 — 지정한 모드로 발행돼요." : "검토 전 — 예약 시각에 임시저장만 돼요."}
+                <Badge tone={check.leaks.length ? "bad" : "good"}>{check.leaks.length ? "위험" : "OK"}</Badge>
+                {check.leaks.length ? `금지어/민감 패턴: ${check.leaks.join(", ")}` : "금지어 없음"}
               </li>
               <li className="flex items-start gap-2">
-                <Badge tone={badImages.length ? "bad" : "good"}>{badImages.length ? "차단" : "OK"}</Badge>
-                {badImages.length ? `공개 저장소가 아닌 이미지 ${badImages.length}개` : "이미지 모두 공개 저장소"}
+                <Badge tone={check.nonPublicImages.length ? "bad" : "good"}>{check.nonPublicImages.length ? "위험" : "OK"}</Badge>
+                {check.nonPublicImages.length ? `공개 저장소가 아닌 이미지 ${check.nonPublicImages.length}개 (비공개 캡처는 외부에서 안 보여요)` : "이미지 모두 공개 저장소"}
               </li>
               <li className="flex items-start gap-2">
-                <Badge tone={leaks.length ? "bad" : "good"}>{leaks.length ? "차단" : "OK"}</Badge>
-                {leaks.length ? `금지어/민감 패턴: ${leaks.join(", ")}` : "금지어 없음"}
+                <Badge tone={check.todos.length ? "warn" : "good"}>{check.todos.length ? "남음" : "OK"}</Badge>
+                {check.todos.length ? `TODO ${check.todos.length}개: ${check.todos.slice(0, 2).join(" / ")}` : "TODO 없음"}
               </li>
-              <li className="text-xs text-muted">스케줄러 판단: {decision.action === "publish" ? `${decision.mode}${decision.downgraded ? " (강등)" : ""}` : decision.reason}</li>
             </ul>
           </Card>
+
           <Card>
-            <CardTitle action={<CopyButton text={pkg} />}>수동 발행 패키지</CardTitle>
-            <p className="text-xs text-muted">API 발행이 실패하면 이 내용을 velog 편집기에 붙여넣으세요. 발행 후 RSS 동기화가 URL 을 자동으로 기록해요.</p>
-            {post.error && <p className="mt-2 text-xs text-bad">최근 오류: {post.error}</p>}
+            <CardTitle>복사해서 올리기</CardTitle>
+            {blocked && <p className="mb-2 rounded-md bg-bad-soft px-2 py-1 text-xs text-bad">위험 항목을 먼저 고친 뒤 복사하는 걸 권장해요.</p>}
+            <ul className="divide-y divide-line">
+              <ExportRow label="제목" hint={ex.title}>
+                <CopyButton text={ex.title} />
+              </ExportRow>
+              <ExportRow label="태그" hint={ex.tags || "없음"}>
+                <CopyButton text={ex.tags} />
+              </ExportRow>
+              <ExportRow label="Markdown" hint="velog · Hashnode · GitHub">
+                <CopyButton text={ex.markdown} />
+              </ExportRow>
+              <ExportRow label="서식 있는 텍스트" hint="티스토리 · 네이버 블로그 편집기에 그대로 붙여넣기">
+                <CopyButton text={ex.markdown} html={ex.html} />
+              </ExportRow>
+              <ExportRow label="HTML 소스" hint="티스토리 HTML 모드 · 워드프레스">
+                <CopyButton text={ex.html} />
+              </ExportRow>
+              <ExportRow label="Markdown + front matter" hint="dev.to · 정적 블로그(Astro 등)">
+                <CopyButton text={ex.markdownWithFrontMatter} />
+              </ExportRow>
+            </ul>
+          </Card>
+
+          <Card>
+            <CardTitle>발행 완료 기록</CardTitle>
+            <ActionForm action={markPublishedAction} showOk className="space-y-2">
+              <input type="hidden" name="id" value={post.id} />
+              <Field label="올린 곳">
+                <select name="platform" defaultValue="velog">
+                  {OPT.platform.map((p) => (
+                    <option key={p}>{p}</option>
+                  ))}
+                </select>
+              </Field>
+              <Field label="글 URL" hint="velog 는 비워 둬도 매일 RSS 로 자동 기록돼요.">
+                <input name="url" type="url" placeholder="https://" defaultValue={post.velogUrl ?? ""} />
+              </Field>
+              <Button variant="secondary">발행 완료로 표시</Button>
+            </ActionForm>
           </Card>
         </div>
       </div>

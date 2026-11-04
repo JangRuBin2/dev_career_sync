@@ -41,7 +41,7 @@ export default async function DashboardHome() {
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
         <Stat label="이번 주 기록" value={`${weekLogs.length}건`} hint={weekLogs.length === 0 ? "오늘 한 일 2분만 적어 볼까요?" : weekLogs.at(-1)?.title} />
         <Stat label="확인 대기" value={`${pendingAchievements.length + draftRecords.length}건`} hint={`성과 ${pendingAchievements.length} · 기록 ${draftRecords.length}`} href="/dashboard/inbox" />
-        <Stat label="다음 velog 발행" value={nextPost ? formatShortDate(nextPost.scheduledAt) : "-"} hint={nextPost ? `${nextPost.title} · ${nextPost.mode ?? "임시저장"}` : "예약된 글 없음"} href="/dashboard/posts" />
+        <Stat label="다음 발행 목표" value={nextPost ? formatShortDate(nextPost.scheduledAt) : "-"} hint={nextPost ? `${nextPost.title} · ${nextPost.mode ?? "임시저장"}` : "예약된 글 없음"} href="/dashboard/posts" />
         <Stat label="이력서 성과" value={`${confirmed.length}개`} hint={`프로젝트 ${projects.filter((p) => p.onResume).length}개 노출`} href="/dashboard/resume" />
       </div>
 

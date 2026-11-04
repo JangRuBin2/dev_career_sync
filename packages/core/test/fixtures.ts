@@ -45,6 +45,7 @@ export const post = (over: Partial<Post> = {}): Post => ({
   velogUrl: null,
   publishedAt: null,
   error: "",
+  platforms: [],
   projectIds: [],
   attachmentIds: [],
   ...over,

@@ -189,6 +189,7 @@ function seed() {
     [P.posts.status]: sel("발행됨"),
     [P.posts.mode]: sel("공개"),
     [P.posts.url]: { url: "https://velog.io/@me/storybook" },
+    [P.posts.platforms]: ms(["velog"]),
     [P.posts.publishedAt]: date("2026-02-20"),
     [P.posts.project]: rel([p2]),
   });

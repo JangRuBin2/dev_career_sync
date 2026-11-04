@@ -340,7 +340,7 @@ export class CareerRepo {
   }
 
   /** velog 에서 직접 쓴 글을 RSS 로 발견했을 때 기록용으로 추가 */
-  async createPublishedPost(input: { title: string; url: string; publishedAt: string | null }) {
+  async createPublishedPost(input: { title: string; url: string; publishedAt: string | null; platform?: string }) {
     const k = P.posts;
     return this.create("posts", {
       [k.title]: w.title(input.title),
@@ -348,13 +348,14 @@ export class CareerRepo {
       [k.mode]: w.select("공개"),
       [k.reviewed]: w.checkbox(true),
       [k.url]: w.url(input.url),
+      ...(input.platform ? { [k.platforms]: w.multiSelect([input.platform]) } : {}),
       ...(input.publishedAt ? { [k.publishedAt]: w.date(input.publishedAt) } : {}),
     });
   }
 
   async updatePost(
     id: string,
-    patch: Partial<{ status: PostStatus; mode: PostMode; reviewed: boolean; scheduledAt: string | null; velogId: string; velogUrl: string; publishedAt: string; error: string }>,
+    patch: Partial<{ status: PostStatus; mode: PostMode; reviewed: boolean; scheduledAt: string | null; velogId: string; velogUrl: string | null; publishedAt: string | null; error: string; platforms: string[] }>,
   ) {
     const k = P.posts;
     const props: Record<string, unknown> = {};
@@ -366,6 +367,7 @@ export class CareerRepo {
     if (patch.velogUrl !== undefined) props[k.url] = w.url(patch.velogUrl);
     if (patch.publishedAt !== undefined) props[k.publishedAt] = w.date(patch.publishedAt);
     if (patch.error !== undefined) props[k.error] = w.text(patch.error);
+    if (patch.platforms !== undefined) props[k.platforms] = w.multiSelect(patch.platforms);
     await this.update(id, props);
   }
 

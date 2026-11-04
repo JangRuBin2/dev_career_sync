@@ -1,9 +1,9 @@
 # CareerSync 기획서
 
-> 회사에서 일하며 남긴 기록을 **성과 데이터 → 이력서 / 포트폴리오 / velog** 로 자동 파생시키는 개인 커리어 관리 시스템
+> 회사에서 일하며 남긴 기록을 **성과 데이터 → 이력서 / 포트폴리오 / 블로그 초안** 으로 자동 파생시키는 개인 커리어 관리 시스템
 
 - 작성일: 2026-11-04
-- 상태: v1 기획 확정, Phase 0~1 개발 중
+- 상태: v1 기획 확정, Phase 0~3 코드 완료 (블로그는 2026-11-04 결정으로 "초안 작성까지만 자동화")
 
 ---
 
@@ -31,7 +31,7 @@
 ```
                      ┌──────────────── 개인 GitHub (monorepo) ─────────────────┐
                      │                                                          │
-  GitHub Actions ────┤  weekly-digest · publish-scheduler · sync-rss            │
+  GitHub Actions ────┤  weekly-digest · draft-posts · sync-rss                  │
         │            └──────────────────────────────────────────────────────────┘
         │ Notion API / Claude API / velog                       ▲ push → 자동 배포
         ▼                                                       │
@@ -47,7 +47,7 @@
         │                              │  - public store : 공개 이미지   │
         │                              └─────────────────────────────┘
         ▼
-  Notion 이력서 페이지                     velog (임시저장 / 공개 / 비공개)
+  Notion 이력서 페이지              블로그 초안 → (직접 복사·발행) velog · 티스토리 · 네이버 …
 ```
 
 | 구성 요소 | 역할 | 선택 이유 |
@@ -55,7 +55,7 @@
 | **Notion** | 데이터 원본(Source of Truth), 이력서 문서 | 모바일 기록이 편하고, 직접 열어봐도 읽히는 형태 |
 | **Vercel App** | 한눈에 보는 대시보드, 확인·승인 UI, 이미지 업로드 | Notion UI만으로는 "배정 확인·미리보기·일괄 처리"가 불편 |
 | **Vercel Blob** | 캡처 이미지 저장 | 앱과 같은 플랫폼, private store 지원 (아래 결정 참고) |
-| **GitHub Actions** | LLM 배치·발행 스케줄러 | 실행 시간 제한이 넉넉하고 Secrets 관리 내장 |
+| **GitHub Actions** | LLM 배치·초안 생성·RSS 동기화 | 실행 시간 제한이 넉넉하고 Secrets 관리 내장 |
 | **Claude API** | 요약, 성과/지표 추출, 프로젝트 매칭, 초안 작성 | 구조화 출력(JSON) 품질 |
 
 ### 결정 기록 (ADR)
@@ -70,10 +70,16 @@
 - LLM 호출이 여러 건 이어지는 주간 배치는 서버리스 함수 시간 제한에 걸릴 수 있다.
 - 사용자 액션(승인/업로드)은 Vercel Route Handler / Server Action에서 즉시 처리.
 
-**ADR-3. velog는 비공식 GraphQL + 실패 시 수동 패키지**
-- velog는 공식 API가 없다. 임시저장/공개/비공개를 제어하려면 `v2.velog.io/graphql`의 `writePost` mutation(`is_temp`, `is_private`)을 써야 한다.
-- 토큰 만료·스펙 변경 리스크 → 실패 시 알림 + 대시보드에서 "Markdown + 이미지" 복사용 패키지 제공.
-- 읽기(발행 글 목록)는 RSS(`v2.velog.io/rss/{username}`)로 안정적으로 동기화.
+**ADR-3. 블로그는 "초안 작성까지만 자동화", 발행은 직접 (2026-11-04 결정)**
+- 배경: velog는 공식 API가 없고(비공식 GraphQL만 가능), 블로그마다 API를 연동하는 건 유지비가 크다.
+- 결정: 글 작성(소재 선정 → 초안 → 마스킹·점검)까지 자동화하고, 발행은 대시보드에서 **플랫폼별 형식으로 복사**해 직접 올린다.
+  - Markdown → velog · Hashnode · GitHub
+  - 서식 있는 텍스트 / HTML → 티스토리 · 네이버 블로그 · 워드프레스
+  - Markdown + front matter → dev.to · 정적 블로그
+- 발행 기록: velog는 RSS(`v2.velog.io/rss/{username}`)로 자동, 그 외는 대시보드 "발행 완료 기록"(발행처 + URL).
+- 보존: velog 비공식 GraphQL 자동 발행 코드(`core/velog/client.ts`, `policy.ts`, `jobs/publish-scheduler.ts`)는 **삭제하지 않고 비활성화**.
+  `AUTO_PUBLISH=1` + 워크플로 schedule 주석 해제로 다시 켤 수 있다.
+- 다음 후보: 정적 블로그(GitHub Pages/Astro)를 원본으로 두고 git push = 발행, 다른 플랫폼은 canonical 링크로 옮겨 싣기.
 
 **ADR-4. 인증: GitHub OAuth, 본인 계정 ID만 허용**
 - 1인 전용. `ALLOWED_GITHUB_ID` 와 일치하지 않으면 로그인 거부.
@@ -174,19 +180,18 @@ if(prop("방향") == "낮을수록 좋음",
 | 노출 | multi_select | 이력서 · 포트폴리오 |
 | 정렬 | number | |
 
-### 3.6 Posts (velog)
+### 3.6 Posts (블로그 초안)
 | 속성 | 타입 | 비고 |
 |---|---|---|
 | 제목 | title | |
-| 상태 | select | 소재 · 초안 · 검토대기 · 검토완료 · 임시저장됨 · 발행됨 · 실패 |
-| 발행 모드 | select | 임시저장 · 공개 · 비공개 |
-| 예약일시 | date | |
-| 검토완료 | checkbox | **체크 없으면 공개 금지** |
+| 상태 | select | 소재 · 초안 · 검토대기 · 검토완료 · 발행됨 (임시저장됨·실패는 자동 발행용) |
+| 예약일시 | date | 발행 **목표일** (주기 계산·리마인드용) |
+| 검토완료 | checkbox | |
 | 본문 | (페이지 본문, Markdown) | |
 | 태그 | multi_select | |
-| velog ID / URL | rich_text / url | |
-| 발행일 | date | |
-| 실패 사유 | rich_text | |
+| 발행처 | multi_select | velog · 티스토리 · 네이버 블로그 · dev.to · 기타 |
+| URL / 발행일 | url / date | 직접 올린 글 주소 (velog 는 RSS 로 자동) |
+| 발행 모드 · velog ID · 실패 사유 | select / rich_text | 자동 발행(비활성화) 전용 — 보존 |
 | 프로젝트 | relation → Projects | |
 | 첨부 | relation → Attachments | |
 
@@ -247,18 +252,15 @@ Notion 이력서 페이지의 해당 프로젝트 섹션만 재렌더 + 변경 �
 ```
 - 확인 없이 이력서가 바뀌는 경로는 없다.
 
-### 4.4 velog 주기 포스팅
+### 4.4 블로그 주기 포스팅 (초안 자동 작성, 발행은 직접)
 ```
-소재 → 초안 → 검토대기 → 검토완료 → (예약 시각) → 임시저장됨 / 발행됨
-                  └─ 기한 내 미검토 → 임시저장만 수행
+소재(주간 배치가 추천) → [draft-posts: 주기마다] 초안 자동 작성 → 검토대기
+  → 대시보드에서 다듬기 + 점검(금지어·비공개 이미지·TODO)
+  → 플랫폼별 형식 복사 → 직접 발행 → 발행 완료 기록 (velog 는 RSS 자동)
 ```
-- 주기 설정(예: 격주 화 09:00). 발행 D-3에 초안 생성 → 알림.
-- 발행 모드: **임시저장 / 공개 / 비공개** — 글마다 선택.
-- `publish-scheduler`(매시 정각): `예약일시 ≤ now` 인 글 처리
-  - `검토완료=false` → 모드와 무관하게 **임시저장**으로 강등
-  - `검토완료=true` → 지정 모드로 발행
-- 본문 이미지는 public store URL만 허용(비공개 이미지 참조 시 발행 차단).
-- 발행 후 URL을 Posts에 저장, RSS 동기화로 이중 확인.
+- 주기 설정: `POST_INTERVAL_DAYS`(기본 14일), 목표일 D-`POST_LEAD_DAYS`(기본 3일)에 초안 작성 → 알림.
+- 본문 이미지는 public store URL만 권장 (비공개 캡처는 외부에서 보이지 않음 → 점검에서 경고).
+- 작성자 메모(`<!-- 이미지: … -->`)는 내보낼 때 자동 제거.
 
 ### 4.5 이미지 업로드 / 공개 승격
 ```
@@ -283,7 +285,7 @@ Notion 이력서 페이지의 해당 프로젝트 섹션만 재렌더 + 변경 �
 | `/dashboard/projects` | 프로젝트 목록 | 카드 (대표 이미지·기간·스택·공개 링크 뱃지) |
 | `/dashboard/projects/[id]` | 프로젝트 상세 | 개요, Records 타임라인, 지표 표, 캡처 갤러리, 링크 카드, 관련 글 |
 | `/dashboard/records/[id]` | Record 상세 | 요약, 핵심 성과, 지표, 이미지, 원본 로그 |
-| `/dashboard/posts` | 포스팅 | 소재 큐, 상태별 목록, 발행 모드, 예약 |
+| `/dashboard/posts` | 포스팅 | 소재 큐, 상태별 목록, 목표일·검토, 플랫폼별 복사, 발행 완료 기록 |
 | `/dashboard/resume` | 이력서 | 미리보기, Markdown 내보내기 |
 | `/dashboard/upload` | 업로드 | 이미지(블러 도구) / 링크 첨부 |
 
@@ -292,7 +294,7 @@ Notion 이력서 페이지의 해당 프로젝트 섹션만 재렌더 + 변경 �
 ## 6. 보안 원칙
 1. 개인 Notion 워크스페이스 · 개인 GitHub · 개인 Vercel만 사용. 회사 기기/계정과 분리.
 2. 3단계 필터: 금지어 사전 → LLM 검토 → **사람 승인**.
-3. 외부 노출(velog 공개, 포트폴리오)은 승인된 것만.
+3. 외부 노출(블로그 발행, 포트폴리오)은 사람이 직접·승인된 것만.
 4. 캡처는 기본 비공개. 공개 전환은 마스킹 확인 후에만.
 5. 절대 수치 대신 상대값(%) 권장.
 6. 금지어 사전(`DENYLIST`)은 레포에 커밋하지 않고 Secrets/환경변수로 주입.
@@ -327,11 +329,12 @@ careersync/
 │     ├─ sanitize/          # 금지어 마스킹
 │     ├─ metrics/           # 개선율 계산
 │     ├─ llm/               # 주간 다이제스트 프롬프트·파싱
-│     ├─ velog/             # RSS, GraphQL 클라이언트, 발행 정책
+│     ├─ publish/           # 플랫폼별 내보내기(Markdown/HTML), 발행 전 점검
+│     ├─ velog/             # RSS (+ 보존: 비공식 GraphQL 자동 발행, 비활성화)
 │     └─ resume/            # 이력서 렌더(Markdown/Notion 블록)
-├─ jobs/                    # weekly-digest, publish-scheduler, sync-rss, setup-notion
+├─ jobs/                    # weekly-digest, draft-posts, sync-rss, setup-notion (publish-scheduler 는 비활성화)
 ├─ docs/                    # 기획·셋업 문서
-└─ .github/workflows/       # ci, weekly, publish, sync
+└─ .github/workflows/       # ci, weekly-digest, draft-posts, sync-rss (publish 는 수동 실행만)
 ```
 
 ## 9. 환경변수
@@ -346,7 +349,8 @@ careersync/
 | `GITHUB_CLIENT_ID` / `GITHUB_CLIENT_SECRET` / `ALLOWED_GITHUB_ID` | web | OAuth |
 | `SESSION_SECRET` | web | 32자 이상 |
 | `REVALIDATE_SECRET` | web, jobs | 배치 → 캐시 갱신 |
-| `VELOG_USERNAME` / `VELOG_ACCESS_TOKEN` / `VELOG_REFRESH_TOKEN` | jobs | |
+| `VELOG_USERNAME` | jobs | RSS 동기화 |
+| `AUTO_PUBLISH` / `VELOG_ACCESS_TOKEN` / `VELOG_REFRESH_TOKEN` | jobs | 자동 발행(비활성화) 다시 켤 때만 |
 | `DENYLIST` | jobs | `회사명=A사,고객사=B사` 형식 |
 | `NOTIFY_WEBHOOK_URL` | jobs | Slack/Discord 알림 (선택) |
 
@@ -356,19 +360,20 @@ careersync/
 | **0** | 1주 | monorepo, Notion DB 셋업 스크립트, Vercel 배포, GitHub 로그인 | ✅ 코드 완료 · 실계정 연결 필요 |
 | **1** | 2주 | 대시보드 읽기(홈/프로젝트/상세), 이미지·링크 첨부(Blob, 모자이크) | ✅ 코드 완료 · mock 으로 E2E 확인 |
 | **2** | 2주 | 주간 배치, Inbox 프로젝트 배정 확인, 이력서 섹션 렌더·변경 이력 | ✅ 코드 완료 · mock 으로 E2E 확인 |
-| **3** | 2주 | velog 파이프라인(초안→검토→임시저장/공개 예약), RSS 동기화, 수동 패키지 | ✅ 코드 완료 · velog 실발행 미검증 |
+| **3** | 2주 | 블로그 초안 자동 작성, 플랫폼별 복사(Markdown/HTML), 발행 기록, velog RSS 동기화 | ✅ 코드 완료 · mock 으로 E2E 확인 |
 | **4** | 이후 | 지표 차트, PDF, JD 맞춤 이력서, 공개 포트폴리오, Vision 검사 | ⏳ |
 
 ### 검증 현황 (2026-11-04)
-- 단위 테스트 28개 (마스킹, 개선율, 이력서 렌더/미리보기, 발행 정책, RSS 파싱, LLM 결과 검증, 세션)
+- 단위 테스트 36개 (마스킹, 개선율, 이력서 렌더/미리보기, 내보내기·발행 전 점검, 발행 정책(보존), RSS 파싱, LLM 결과 검증, 세션)
 - `pnpm mock:notion` (가짜 Notion API) 위에서 프로덕션 빌드로 E2E 확인:
-  빠른 기록 → Inbox 배정(기존/새 프로젝트) → 미리보기 → 적용(성과·기록 확정 + 이력서 재렌더), 포스팅 검토/모드 변경, 링크 첨부·사내 주소 차단, 인증 차단(307/401/403), 모바일 390px
-- **아직 실제 서비스로 검증하지 않은 부분**: Notion 실 API(특히 `setup:notion` 의 dual relation·수식 생성), velog GraphQL 발행, Vercel Blob 업로드/공개 승격, Claude 주간 다이제스트 품질
+  빠른 기록 → Inbox 배정(기존/새 프로젝트) → 미리보기 → 적용(성과·기록 확정 + 이력서 재렌더), 포스팅 검토·목표일, 플랫폼별 복사, 발행 완료 기록, 링크 첨부·사내 주소 차단, 인증 차단(307/401/403), 모바일 390px
+- **아직 실제 서비스로 검증하지 않은 부분**: Notion 실 API(특히 `setup:notion` 의 dual relation·수식 생성), Vercel Blob 업로드/공개 승격, Claude 주간 다이제스트 품질
 
 ## 11. 리스크
 | 리스크 | 영향 | 대응 |
 |---|---|---|
-| velog 비공식 API 변경/토큰 만료 | 자동 발행 실패 | 실패 알림 + 수동 패키지, 읽기는 RSS |
+| 직접 발행을 미루게 됨 | 글이 쌓이기만 함 | 목표일 알림, 대시보드 "검토 · 발행 대기" 목록 |
+| (자동 발행을 다시 켤 경우) velog 비공식 API 변경/토큰 만료 | 발행 실패 | 실패 알림 + 복사 발행, 읽기는 RSS |
 | Notion rate limit (평균 3 req/s) | 배치 지연 | 재시도·백오프, 요청 직렬화 |
 | LLM 환각 (없는 수치 생성) | 잘못된 성과 기록 | 원문에 있는 숫자만 허용(검증), 모두 `초안` 상태로 저장 후 사람 확정 |
 | 기밀 유출 | 치명적 | 3단계 필터, 비공개 기본값, 공개 승격 조건 |

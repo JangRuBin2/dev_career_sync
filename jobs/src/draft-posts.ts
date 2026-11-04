@@ -1,5 +1,6 @@
 /**
- * velog 주기 포스팅: 소재 → 초안 (발행 D-N 에 실행)
+ * 블로그 주기 포스팅: 소재 → 초안 (발행 목표일 D-N 에 실행)
+ * 발행은 자동으로 하지 않는다. 대시보드에서 검토 후 Markdown/HTML 을 복사해 원하는 블로그에 직접 올린다.
  *   POST_INTERVAL_DAYS (기본 14) — 마지막 예약 글 이후 이 기간이 지나야 새 초안 생성
  *   POST_LEAD_DAYS (기본 3) — 초안 생성 후 며칠 뒤에 발행 예약할지
  *   POST_DEFAULT_MODE (기본 임시저장) — 임시저장 | 공개 | 비공개
@@ -49,6 +50,6 @@ run(async () => {
   await repo.updatePost(idea.id, { status: "검토대기", mode, reviewed: false, scheduledAt });
   await revalidateWeb(["posts"]);
   await notify(
-    `✍️ velog 초안 준비: "${draft.title}" → ${publishDate} ${hour}시 예약 (${mode}). 검토완료 체크 전에는 임시저장만 됩니다.${leaks.length ? `\n⚠️ 마스킹 확인: ${leaks.join(", ")}` : ""}`,
+    `✍️ 블로그 초안 준비: "${draft.title}" (목표일 ${publishDate})\n👉 대시보드 포스팅에서 검토하고 Markdown/HTML 을 복사해 올려 주세요.${leaks.length ? `\n⚠️ 마스킹 확인: ${leaks.join(", ")}` : ""}`,
   );
 });

@@ -185,16 +185,43 @@ export async function demoteAttachmentAction(fd: FormData): Promise<ActionState>
 export async function updatePostSettingsAction(fd: FormData): Promise<ActionState> {
   return guard(async () => {
     const id = str(fd, "id");
+    // 발행 모드는 자동 발행(현재 비활성화) 전용이라 폼에 있을 때만 반영
     const mode = str(fd, "mode") as PostMode;
-    const scheduledLocal = str(fd, "scheduledAt"); // datetime-local (KST)
+    const target = str(fd, "targetDate"); // 발행 목표일 (date, KST)
     const reviewed = fd.get("reviewed") === "on";
     await getRepo().updatePost(id, {
-      mode,
+      ...(mode ? { mode } : {}),
       reviewed,
-      scheduledAt: scheduledLocal ? new Date(`${scheduledLocal}:00+09:00`).toISOString() : null,
+      scheduledAt: target ? new Date(`${target}T09:00:00+09:00`).toISOString() : null,
       status: reviewed ? "검토완료" : "검토대기",
     });
     updateTag(TAGS.posts);
+  });
+}
+
+/** 직접 블로그에 올린 뒤 발행처·URL 기록 */
+export async function markPublishedAction(fd: FormData): Promise<ActionState> {
+  return guard(async () => {
+    const id = str(fd, "id");
+    const platform = str(fd, "platform");
+    const raw = str(fd, "url");
+    let url: string | null = null;
+    if (raw) {
+      const u = new URL(raw);
+      if (!/^https?:$/.test(u.protocol)) throw new Error("http(s) 링크만 입력하세요");
+      url = u.toString();
+    }
+    const repo = getRepo();
+    const post = await repo.getPost(id);
+    await repo.updatePost(id, {
+      status: "발행됨",
+      reviewed: true,
+      velogUrl: url ?? post.velogUrl,
+      publishedAt: new Date().toISOString(),
+      platforms: [...new Set([...post.platforms, ...(platform ? [platform] : [])])],
+    });
+    updateTag(TAGS.posts);
+    return "발행 완료로 기록했어요";
   });
 }
 
