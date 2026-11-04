@@ -75,6 +75,7 @@ export class CareerRepo {
       [k.title]: w.title(input.title),
       [k.date]: w.date(input.date ?? today()),
       [k.content]: w.text(input.content),
+      [k.processed]: w.checkbox(false),
       ...(input.type ? { [k.type]: w.select(input.type) } : {}),
       ...(input.tags ? { [k.tags]: w.multiSelect(input.tags) } : {}),
       ...(input.projectId ? { [k.project]: w.relation([input.projectId]) } : {}),

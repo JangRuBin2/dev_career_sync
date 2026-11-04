@@ -12,7 +12,8 @@
     "render-resume": "tsx --env-file-if-exists=../.env src/render-resume.ts",
     "typecheck": "tsc --noEmit",
     "test": "echo 'jobs: no unit tests (logic lives in @careersync/core)'",
-    "mock-notion": "tsx src/dev/mock-notion.ts"
+    "mock-notion": "tsx src/dev/mock-notion.ts",
+    "verify-notion": "tsx --env-file-if-exists=../.env src/verify-notion.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "1.4.0",

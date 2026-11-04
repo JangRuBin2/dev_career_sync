@@ -5,3 +5,4 @@ export * from "./repo";
 export { setupNotionWorkspace } from "./setup";
 export { read, write, toRichText } from "./props";
 export { verifyWebhookSignature } from "./sdk";
+export { diffSchema, type VerifyIssue, type ActualSchema } from "./verify";

@@ -9,7 +9,7 @@
  */
 import { createServer, type IncomingMessage } from "node:http";
 import { randomUUID } from "node:crypto";
-import { DB_ENV, DB_KEYS, P, type DbKey } from "@careersync/core/notion";
+import { DB_ENV, DB_KEYS, DB_SPECS, P, type DbKey } from "@careersync/core/notion";
 
 type Prop = { type: string; [k: string]: unknown };
 type Page = { object: "page"; id: string; url: string; parent: { data_source_id: string }; properties: Record<string, Prop>; markdown: string; created_time: string; last_edited_time: string };
@@ -247,6 +247,19 @@ createServer(async (req, res) => {
       const b = await body(req);
       const results = [...pages.values()].filter((p) => p.parent.data_source_id === m![1] && matches(p, b.filter as Filter)).map(withFormula);
       return send(200, { object: "list", results, has_more: false, next_cursor: null, type: "page_or_data_source", page_or_data_source: {} });
+    }
+    if (req.method === "GET" && (m = path.match(/^\/data_sources\/([^/]+)$/))) {
+      // setup:notion 이 만들었을 스키마를 DB_SPECS 로 재구성 (verify:notion 테스트용)
+      const key = (Object.entries(DS).find(([, v]) => v === m![1])?.[0]) as DbKey | undefined;
+      if (!key) return send(404, { object: "error", code: "object_not_found", message: "not found" });
+      const properties: Record<string, unknown> = {};
+      for (const k of DB_KEYS) {
+        for (const [name, spec] of Object.entries(DB_SPECS[k])) {
+          if (k === key) properties[name] = spec.type === "relation" ? { type: "relation", relation: { data_source_id: DS[spec.target] } } : { type: spec.type };
+          if (spec.type === "relation" && spec.syncedName && spec.target === key) properties[spec.syncedName] = { type: "relation", relation: { data_source_id: DS[k] } };
+        }
+      }
+      return send(200, { object: "data_source", id: m[1], properties });
     }
     if (req.method === "GET" && (m = path.match(/^\/pages\/([^/]+)\/markdown$/))) {
       const p = pages.get(m[1]!);

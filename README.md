@@ -49,6 +49,11 @@ http://localhost:3000/dashboard 에서 샘플 데이터로 대시보드를 볼 �
    pnpm setup:notion
    ```
    DB 7개 + relation + 개선율 수식 + 이력서 페이지가 생성되고, `NOTION_DS_*` / `NOTION_RESUME_PAGE_ID` 값이 출력된다.
+5. 출력된 값을 `.env` 에 넣고 점검:
+   ```bash
+   pnpm verify:notion --write
+   ```
+   DB 접근, 속성·relation·역방향 속성·수식, 이력서 페이지, 쓰기/조회를 확인한다 (테스트 행은 휴지통으로 이동).
 
 ### 2. Vercel
 1. 이 레포를 Import, **Root Directory = `apps/web`**.
