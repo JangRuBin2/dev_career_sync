@@ -1,0 +1,44 @@
+name: Weekly digest
+
+# 매주 금요일 18:00 KST (= 09:00 UTC). 수동 실행 시 dry-run 선택 가능
+on:
+  schedule:
+    - cron: "0 9 * * 5"
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Notion 에 쓰지 않고 결과만 출력"
+        type: boolean
+        default: false
+
+concurrency: careersync-notion
+
+jobs:
+  digest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      NOTION_TOKEN: ${{ secrets.NOTION_TOKEN }}
+      NOTION_DS_WORK_LOG: ${{ secrets.NOTION_DS_WORK_LOG }}
+      NOTION_DS_PROJECTS: ${{ secrets.NOTION_DS_PROJECTS }}
+      NOTION_DS_RECORDS: ${{ secrets.NOTION_DS_RECORDS }}
+      NOTION_DS_METRICS: ${{ secrets.NOTION_DS_METRICS }}
+      NOTION_DS_ACHIEVEMENTS: ${{ secrets.NOTION_DS_ACHIEVEMENTS }}
+      NOTION_DS_POSTS: ${{ secrets.NOTION_DS_POSTS }}
+      NOTION_DS_ATTACHMENTS: ${{ secrets.NOTION_DS_ATTACHMENTS }}
+      NOTION_RESUME_PAGE_ID: ${{ secrets.NOTION_RESUME_PAGE_ID }}
+      DENYLIST: ${{ secrets.DENYLIST }}
+      NOTIFY_WEBHOOK_URL: ${{ secrets.NOTIFY_WEBHOOK_URL }}
+      WEB_URL: ${{ vars.WEB_URL }}
+      REVALIDATE_SECRET: ${{ secrets.REVALIDATE_SECRET }}
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+      DRY_RUN: ${{ inputs.dry_run && '1' || '' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm job:weekly

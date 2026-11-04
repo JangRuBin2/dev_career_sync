@@ -1,0 +1,115 @@
+@import "tailwindcss";
+
+:root {
+  --bg: #f7f7f5;
+  --surface: #ffffff;
+  --surface-2: #f0efeb;
+  --border: #e4e2dc;
+  --text: #1f1f1c;
+  --muted: #6b6a64;
+  --accent: #2f6fde;
+  --accent-soft: #e6eefc;
+  --good: #1f8a4c;
+  --good-soft: #e3f4ea;
+  --warn: #b26a00;
+  --warn-soft: #fbf0dc;
+  --bad: #c2362f;
+  --bad-soft: #fbe5e3;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #161615;
+    --surface: #1f1f1d;
+    --surface-2: #2a2a27;
+    --border: #363632;
+    --text: #ecebe6;
+    --muted: #a09f98;
+    --accent: #7aa6f5;
+    --accent-soft: #1e2b44;
+    --good: #5cc98a;
+    --good-soft: #17301f;
+    --warn: #e0a54a;
+    --warn-soft: #33270f;
+    --bad: #ef7a73;
+    --bad-soft: #3a1a18;
+  }
+}
+
+:root[data-theme="dark"] {
+  --bg: #161615;
+  --surface: #1f1f1d;
+  --surface-2: #2a2a27;
+  --border: #363632;
+  --text: #ecebe6;
+  --muted: #a09f98;
+  --accent: #7aa6f5;
+  --accent-soft: #1e2b44;
+  --good: #5cc98a;
+  --good-soft: #17301f;
+  --warn: #e0a54a;
+  --warn-soft: #33270f;
+  --bad: #ef7a73;
+  --bad-soft: #3a1a18;
+}
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-line: var(--border);
+  --color-ink: var(--text);
+  --color-muted: var(--muted);
+  --color-accent: var(--accent);
+  --color-accent-soft: var(--accent-soft);
+  --color-good: var(--good);
+  --color-good-soft: var(--good-soft);
+  --color-warn: var(--warn);
+  --color-warn-soft: var(--warn-soft);
+  --color-bad: var(--bad);
+  --color-bad-soft: var(--bad-soft);
+  --font-sans: "Pretendard Variable", Pretendard, -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Noto Sans KR", sans-serif;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+input,
+select,
+textarea {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 0.5rem;
+  padding: 0.45rem 0.65rem;
+  font-size: 0.875rem;
+  color: var(--text);
+  width: 100%;
+}
+input[type="checkbox"],
+input[type="radio"] {
+  width: auto;
+  accent-color: var(--accent);
+}
+input:focus,
+select:focus,
+textarea:focus {
+  outline: 2px solid var(--accent);
+  outline-offset: -1px;
+}
+
+/* 그리드 셀이 내용(select 옵션 등) 길이만큼 늘어나 모바일에서 가로 스크롤이 생기지 않도록 */
+.grid > * {
+  min-width: 0;
+}
+select {
+  min-width: 0;
+  max-width: 100%;
+}
+html,
+body {
+  overflow-x: clip;
+}

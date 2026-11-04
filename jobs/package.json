@@ -1,0 +1,27 @@
+{
+  "name": "@careersync/jobs",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "setup-notion": "tsx --env-file-if-exists=../.env src/setup-notion.ts",
+    "weekly-digest": "tsx --env-file-if-exists=../.env src/weekly-digest.ts",
+    "draft-posts": "tsx --env-file-if-exists=../.env src/draft-posts.ts",
+    "publish-scheduler": "tsx --env-file-if-exists=../.env src/publish-scheduler.ts",
+    "sync-rss": "tsx --env-file-if-exists=../.env src/sync-rss.ts",
+    "render-resume": "tsx --env-file-if-exists=../.env src/render-resume.ts",
+    "typecheck": "tsc --noEmit",
+    "test": "echo 'jobs: no unit tests (logic lives in @careersync/core)'",
+    "mock-notion": "tsx src/dev/mock-notion.ts"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "1.4.0",
+    "@careersync/core": "workspace:*",
+    "@notionhq/client": "5.30.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.20.5",
+    "tsx": "^4.23.15",
+    "typescript": "~5.9.3"
+  }
+}

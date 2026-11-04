@@ -1,0 +1,19 @@
+{
+  "name": "careersync",
+  "private": true,
+  "packageManager": "pnpm@10.28.0",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "dev": "pnpm --filter @careersync/web dev",
+    "build": "pnpm --filter @careersync/web build",
+    "typecheck": "pnpm -r typecheck",
+    "test": "pnpm -r test",
+    "setup:notion": "pnpm --filter @careersync/jobs setup-notion",
+    "job:weekly": "pnpm --filter @careersync/jobs weekly-digest",
+    "job:publish": "pnpm --filter @careersync/jobs publish-scheduler",
+    "job:sync": "pnpm --filter @careersync/jobs sync-rss",
+    "mock:notion": "pnpm --filter @careersync/jobs mock-notion"
+  }
+}

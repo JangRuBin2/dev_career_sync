@@ -1,0 +1,27 @@
+{
+  "name": "@careersync/core",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./notion": "./src/notion/index.ts",
+    "./velog": "./src/velog/index.ts",
+    "./llm": "./src/llm/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "@types/node": "^22.20.5",
+    "typescript": "5.9.3",
+    "vitest": "4.1.12"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "1.4.0",
+    "@notionhq/client": "5.30.0",
+    "fast-xml-parser": "5.12.0",
+    "zod": "4.6.7"
+  }
+}
