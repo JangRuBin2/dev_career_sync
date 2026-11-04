@@ -12,6 +12,7 @@
     "test": "pnpm -r test",
     "setup:notion": "pnpm --filter @careersync/jobs setup-notion",
     "verify:notion": "pnpm --filter @careersync/jobs verify-notion",
+    "check:claude": "pnpm --filter @careersync/jobs check-claude",
     "job:weekly": "pnpm --filter @careersync/jobs weekly-digest",
     "job:publish": "pnpm --filter @careersync/jobs publish-scheduler",
     "job:sync": "pnpm --filter @careersync/jobs sync-rss",

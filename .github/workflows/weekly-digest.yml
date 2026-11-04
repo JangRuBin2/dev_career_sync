@@ -13,6 +13,10 @@ on:
 
 concurrency: careersync-notion
 
+permissions:
+  contents: read
+  id-token: write # Workload Identity Federation 용 GitHub OIDC 토큰 발급
+
 jobs:
   digest:
     runs-on: ubuntu-latest
@@ -31,7 +35,14 @@ jobs:
       NOTIFY_WEBHOOK_URL: ${{ secrets.NOTIFY_WEBHOOK_URL }}
       WEB_URL: ${{ vars.WEB_URL }}
       REVALIDATE_SECRET: ${{ secrets.REVALIDATE_SECRET }}
-      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+      # Claude 인증: Variables 에 ANTHROPIC_FEDERATION_RULE_ID 가 있으면 Workload Identity Federation
+      # (실행마다 GitHub OIDC 토큰으로 단기 토큰 발급, SDK 가 자동 갱신 → 키 만료 걱정 없음), 없으면 API 키 사용
+      ANTHROPIC_API_KEY: ${{ vars.ANTHROPIC_FEDERATION_RULE_ID == '' && secrets.ANTHROPIC_API_KEY || '' }}
+      ANTHROPIC_FEDERATION_RULE_ID: ${{ vars.ANTHROPIC_FEDERATION_RULE_ID }}
+      ANTHROPIC_ORGANIZATION_ID: ${{ vars.ANTHROPIC_ORGANIZATION_ID }}
+      ANTHROPIC_SERVICE_ACCOUNT_ID: ${{ vars.ANTHROPIC_SERVICE_ACCOUNT_ID }}
+      ANTHROPIC_WORKSPACE_ID: ${{ vars.ANTHROPIC_WORKSPACE_ID }}
+      ANTHROPIC_IDENTITY_TOKEN_FILE: ${{ vars.ANTHROPIC_FEDERATION_RULE_ID != '' && '/tmp/anthropic-oidc.jwt' || '' }}
       DRY_RUN: ${{ inputs.dry_run && '1' || '' }}
     steps:
       - uses: actions/checkout@v4
@@ -41,4 +52,10 @@ jobs:
           node-version: 22
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+      - name: Claude 인증 토큰 발급 (Workload Identity Federation)
+        if: ${{ vars.ANTHROPIC_FEDERATION_RULE_ID != '' }}
+        run: |
+          curl -sS -H "Authorization: Bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
+            "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=https://api.anthropic.com" | jq -r .value > "$ANTHROPIC_IDENTITY_TOKEN_FILE"
+          test -s "$ANTHROPIC_IDENTITY_TOKEN_FILE"
       - run: pnpm job:weekly

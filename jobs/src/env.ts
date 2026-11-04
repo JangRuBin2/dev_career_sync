@@ -1,4 +1,4 @@
-import Anthropic from "@anthropic-ai/sdk";
+import { createAnthropic, explainAuthError } from "@careersync/core/llm";
 import { CareerRepo, createNotion, dataSourceIdsFromEnv } from "@careersync/core/notion";
 import { parseDenylist } from "@careersync/core";
 
@@ -12,9 +12,9 @@ export function makeRepo() {
   return new CareerRepo(createNotion(), dataSourceIdsFromEnv());
 }
 
+/** API 키 · WIF · `ant auth login` 프로필 중 설정된 것을 SDK 가 자동 선택 (llm/auth.ts 참고) */
 export function makeAnthropic() {
-  // ANTHROPIC_API_KEY 등 환경의 자격 증명을 그대로 사용
-  return new Anthropic();
+  return createAnthropic();
 }
 
 export const denylist = () => parseDenylist(process.env.DENYLIST);
@@ -40,6 +40,8 @@ export async function revalidateWeb(tags: string[]) {
 
 export function run(main: () => Promise<void>) {
   main().catch((err) => {
+    const hint = explainAuthError(err);
+    if (hint) console.error(`\n❌ ${hint}\n`);
     console.error(err);
     process.exit(1);
   });

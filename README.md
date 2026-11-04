@@ -85,6 +85,29 @@ Settings → Secrets and variables → Actions
 pnpm job:weekly -- --dry-run
 ```
 
+## Claude 인증 (API 키 만료 걱정 없이)
+API 키는 코드로 자동 갱신할 수 없어요 (갱신 토큰이 없고, 새 키 발급은 Console 에서만). 대신 **SDK 가 스스로 토큰을 발급·갱신하는 방식**을 쓰면 돼요.
+
+| 어디서 | 방법 | 갱신 |
+|---|---|---|
+| 내 PC | `ant auth login` 후 `.env` 의 `ANTHROPIC_API_KEY` 를 비워 둠 | 자동 (가끔 재로그인) |
+| GitHub Actions | **Workload Identity Federation** — 실행마다 GitHub OIDC 토큰 → 단기 Anthropic 토큰 | 자동 |
+| 어디서나 (대안) | `ANTHROPIC_API_KEY` | 만료 시 직접 교체 (401 이면 안내 메시지 출력) |
+
+연결 확인 (curl "Hello, world" 테스트와 같은 역할):
+
+```bash
+pnpm check:claude
+```
+
+**GitHub Actions 에 WIF 설정** (Console 의 admin/owner 권한 필요)
+1. https://platform.claude.com/settings/workload-identity-federation → **Connect workload** → GitHub Actions
+   - Issuer: `https://token.actions.githubusercontent.com`
+   - Rule 조건: subject `repo:JangRuBin2/dev_career_sync:ref:refs/heads/main`, audience `https://api.anthropic.com`, scope `workspace:developer`
+2. 레포 Settings → Secrets and variables → Actions → **Variables** 에 등록:
+   `ANTHROPIC_FEDERATION_RULE_ID`(`fdrl_…`), `ANTHROPIC_ORGANIZATION_ID`, `ANTHROPIC_SERVICE_ACCOUNT_ID`(`svac_…`), (여러 워크스페이스면) `ANTHROPIC_WORKSPACE_ID`
+3. 끝. `ANTHROPIC_FEDERATION_RULE_ID` 가 있으면 워크플로가 자동으로 WIF 를 쓰고 `ANTHROPIC_API_KEY` Secret 은 무시해요.
+
 ## 이력서 업데이트 흐름
 
 ```
