@@ -38,6 +38,8 @@ cd apps/web && NOTION_BASE_URL=http://localhost:4010 NOTION_TOKEN=mock NOTION_RE
 
 http://localhost:3000/dashboard 에서 샘플 데이터로 대시보드를 볼 수 있어요. (이미지 업로드는 Blob 토큰이 있어야 동작)
 
+> 대시보드(`pnpm dev`)도 **루트 `.env`** 를 읽어요. 실제 Notion 으로 로컬에서 볼 때는 루트 `.env` 에 `DEV_BYPASS_AUTH=1` 을 넣으면 로그인 없이 열려요 (개발 모드에서만).
+
 ## 실제 셋업
 
 ### 1. Notion

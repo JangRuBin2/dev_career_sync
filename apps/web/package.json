@@ -4,14 +4,15 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "next dev",
+    "dev": "node scripts/with-root-env.mjs dev",
     "build": "next build",
-    "start": "next start",
+    "start": "node scripts/with-root-env.mjs start",
     "typecheck": "tsc --noEmit",
     "test": "vitest run"
   },
   "dependencies": {
     "@careersync/core": "workspace:*",
+    "@next/env": "16.4.5",
     "@vercel/blob": "2.8.2",
     "jose": "6.2.15",
     "next": "16.4.5",
