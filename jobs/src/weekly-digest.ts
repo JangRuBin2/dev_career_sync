@@ -11,9 +11,12 @@ run(async () => {
   const rules = denylist();
   const logs = await repo.listWorkLogs({ unprocessedOnly: true });
   if (logs.length === 0) {
-    await notify("🗓 이번 주 Work Log 가 0건이에요. 오늘 한 일 2분만 기록해 볼까요?");
+    const msg = "🗓 처리할 Work Log 가 0건이에요 (처리됨 체크가 안 된 기록만 정리해요). 오늘 한 일 2분만 기록해 볼까요?";
+    if (isDryRun()) console.log(msg);
+    else await notify(msg);
     return;
   }
+  console.log(`처리할 Work Log ${logs.length}건: ${logs.map((l) => l.title).join(", ")}`);
 
   const masked = logs.map((l) => ({ ...l, title: maskText(l.title, rules), content: maskText(l.content, rules) }));
   const projects = await repo.listProjects();
