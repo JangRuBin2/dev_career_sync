@@ -7,6 +7,7 @@ import { CopyButton } from "@/components/copy-button";
 import { PrintButton } from "@/components/print-button";
 import { ResumeDocument } from "@/components/resume-document";
 import { Badge, Button, Card, CardTitle, PageHeader, formatDateTime, type Tone } from "@/components/ui";
+import { requireReady } from "@/lib/context";
 import { getTailored } from "@/lib/tailored-store";
 import { deleteTailoredAction } from "../../../actions";
 
@@ -14,7 +15,8 @@ const STATUS_TONE: Record<RequirementStatus, Tone> = { 충족: "good", 부분: "
 
 export default async function TailoredDetail({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const doc = await getTailored(id);
+  const { userId } = await requireReady();
+  const doc = await getTailored(userId, id);
   if (!doc) notFound();
   const { job, result, material, profile } = doc;
 

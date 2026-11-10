@@ -1,8 +1,9 @@
 import Link from "next/link";
-import { parseDenylist } from "@careersync/core";
 import { buildTailorMaterial, renderOriginResume } from "@careersync/core/tailor";
 import { TailorForm } from "@/components/tailor-form";
 import { Card, CardTitle, Empty, PageHeader, formatDateTime } from "@/components/ui";
+import { aiUsageSummary } from "@/lib/ai";
+import { denylistOf, profileOf, requireReady } from "@/lib/context";
 import { getAchievements, getMetrics, getProjects, getRecords } from "@/lib/data";
 import { listTailored, storageLabel } from "@/lib/tailored-store";
 import { tailorResumeAction } from "../../actions";
@@ -12,16 +13,18 @@ export const maxDuration = 300;
 
 export default async function TailorPage({ searchParams }: { searchParams: Promise<{ deleted?: string }> }) {
   const { deleted } = await searchParams;
-  const [projects, records, metrics, achievements, versions] = await Promise.all([
+  const ctx = await requireReady();
+  const [projects, records, metrics, achievements, versions, usage] = await Promise.all([
     getProjects(),
     getRecords(),
     getMetrics(),
     getAchievements(),
-    listTailored(),
+    listTailored(ctx.userId),
+    aiUsageSummary(ctx),
   ]);
-  const material = buildTailorMaterial({ projects, records, metrics, achievements, denylist: parseDenylist(process.env.DENYLIST) });
+  const material = buildTailorMaterial({ projects, records, metrics, achievements, denylist: denylistOf(ctx) });
   const originResume = renderOriginResume({
-    profile: { name: process.env.RESUME_NAME, headline: process.env.RESUME_HEADLINE },
+    profile: profileOf(ctx),
     projects,
     achievements,
   });
@@ -39,7 +42,7 @@ export default async function TailorPage({ searchParams }: { searchParams: Promi
       />
       {deleted && <p className="mb-4 rounded-lg bg-surface-2 px-3 py-2 text-sm text-muted">맞춤본을 삭제했어요.</p>}
 
-      <TailorForm material={material} originResume={originResume} action={tailorResumeAction} />
+      <TailorForm material={material} originResume={originResume} action={tailorResumeAction} usage={usage} />
 
       <Card className="mt-4">
         <CardTitle>회사별 버전 ({versions.length})</CardTitle>

@@ -15,10 +15,10 @@
 ## 구조
 
 ```
-apps/web        Next.js 16 대시보드 (Vercel 배포, Root Directory = apps/web)
-packages/core   Notion 스키마·리포지토리, 마스킹, 지표, 이력서 렌더·공고 맞춤, velog, LLM
-jobs            GitHub Actions 에서 도는 배치 (주간 다이제스트, 초안 작성, RSS)
-.github         CI + 스케줄 워크플로
+apps/web        Next.js 16 대시보드 (Vercel 배포, Root Directory = apps/web) — 가입·Notion OAuth·설정·cron, Neon Postgres
+packages/core   Notion 스키마·리포지토리·셋업, 마스킹, 지표, 이력서 렌더·공고 맞춤, 배치 본체, velog, LLM
+jobs            로컬 CLI 배치 (배포 환경에서는 대시보드의 Vercel Cron 이 사용자별로 실행)
+.github         CI
 ```
 
 ## 빠른 시작 (Notion 없이 화면 보기)
@@ -39,76 +39,75 @@ cd apps/web && NOTION_BASE_URL=http://localhost:4010 NOTION_TOKEN=mock NOTION_RE
 
 http://localhost:3000/dashboard 에서 샘플 데이터로 대시보드를 볼 수 있어요. (이미지 업로드는 Blob 토큰이 있어야 동작)
 
-> 대시보드(`pnpm dev`)도 **루트 `.env`** 를 읽어요. 실제 Notion 으로 로컬에서 볼 때는 루트 `.env` 에 `DEV_BYPASS_AUTH=1` 을 넣으면 로그인 없이 열려요 (개발 모드에서만).
+> 대시보드(`pnpm dev`)도 **루트 `.env`** 를 읽어요. `DATABASE_URL` 없이 `DEV_BYPASS_AUTH=1` 이면 위처럼 .env 의 Notion 으로 1인용처럼 동작해요 (개발 모드에서만).
+>
+> 여러 사용자 흐름(가입 → Notion OAuth → 온보딩 → 설정)을 로컬에서 보려면 Postgres 를 띄우고 `DATABASE_URL`, `ENCRYPTION_KEY`, `SESSION_SECRET`, `NOTION_OAUTH_CLIENT_ID=mock`, `NOTION_OAUTH_CLIENT_SECRET=mock`, `NOTION_BASE_URL=http://localhost:4010`, `DEV_BYPASS_AUTH=1` 로 실행하세요. mock 서버가 OAuth 를 바로 승인하고, 첫 토큰을 일부러 만료시켜 자동 갱신까지 확인할 수 있어요.
 
-## 실제 셋업
+## 배포 (운영자 셋업)
+CareerSync 는 **여러 사람이 각자 GitHub 로 가입하고, 자기 Notion 을 버튼으로 연결해서** 쓰는 서비스예요.
+기록·이력서 본문은 각 사용자의 Notion 에 저장되고, 서버(Neon)에는 계정·연결 토큰(암호화)·설정·사용량만 저장해요.
 
-### 1. Notion
-1. **개인** 워크스페이스에 빈 페이지(예: `CareerSync`)를 만든다.
-2. https://www.notion.so/profile/integrations 에서 Internal integration 생성 → 토큰 복사.
-3. 1번 페이지 `···` → 연결(Connections) → 방금 만든 통합 추가.
-4. `.env` 에 `NOTION_TOKEN`, `NOTION_PARENT_PAGE_ID` 입력 후:
-   ```bash
-   pnpm setup:notion
-   ```
-   DB 7개 + relation + 개선율 수식 + 이력서 페이지가 생성되고, `NOTION_DS_*` / `NOTION_RESUME_PAGE_ID` 값이 출력된다.
-5. 출력된 값을 `.env` 에 넣고 점검:
-   ```bash
-   pnpm verify:notion --write
-   ```
-   DB 접근, 속성·relation·역방향 속성·수식, 이력서 페이지, 쓰기/조회를 확인한다 (테스트 행은 휴지통으로 이동).
-
-### 2. Vercel
+### 1. Vercel 프로젝트
 1. 이 레포를 Import, **Root Directory = `apps/web`**.
-2. Storage → Blob 에서 store 2개 생성: `careersync-private` (**Private**), `careersync-public` (Public).
-   각 store 의 read-write 토큰을 `BLOB_PRIVATE_READ_WRITE_TOKEN`, `BLOB_PUBLIC_READ_WRITE_TOKEN` 으로 등록.
-3. GitHub OAuth App 생성 (Callback: `https://<app>.vercel.app/api/auth/callback`) → `GITHUB_CLIENT_ID/SECRET`.
-4. 나머지 환경변수는 [.env.example](.env.example) 참고 (`ALLOWED_GITHUB_ID`, `SESSION_SECRET`, `NOTION_*`, `REVALIDATE_SECRET`, `DENYLIST` …).
+2. **Storage → Neon (Postgres)** 연결 → `DATABASE_URL` 자동 등록. 표는 첫 요청 때 자동으로 만들어져요.
+3. **Storage → Blob** 에서 store 2개: `careersync-private` (**Private**), `careersync-public` (Public) → 토큰을 `BLOB_PRIVATE_READ_WRITE_TOKEN`, `BLOB_PUBLIC_READ_WRITE_TOKEN` 으로.
+4. Fluid compute 켜기 (새 프로젝트는 기본). AI 생성·Notion 셋업 페이지는 최대 300초를 써요.
 
-### 3. GitHub Actions (개인 레포)
-Settings → Secrets and variables → Actions
+### 2. GitHub OAuth App (로그인)
+Callback URL `https://<앱>.vercel.app/api/auth/callback` → `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET`.
 
-| 종류 | 이름 |
+### 3. Notion 공개 통합 (사용자별 "Notion 연결")
+https://www.notion.so/profile/integrations → **Public** integration 생성
+- Redirect URI: `https://<앱>.vercel.app/api/notion/callback`
+- 개인정보처리방침 `…/privacy`, 이용약관 `…/terms`, 회사·웹사이트 정보 입력
+- 권한: 콘텐츠 읽기·수정·삽입
+- 발급된 OAuth client ID / secret → `NOTION_OAUTH_CLIENT_ID`, `NOTION_OAUTH_CLIENT_SECRET`
+- (선택) Webhooks 탭에서 URL `…/api/notion-webhook` 구독 → 처음 오는 verification token 을 `NOTION_WEBHOOK_TOKEN` 으로 (사용자 Notion 수정이 대시보드에 바로 반영)
+
+### 4. 나머지 환경변수
+| 이름 | 설명 |
 |---|---|
-| Secrets | `NOTION_TOKEN`, `NOTION_DS_*`(7개), `NOTION_RESUME_PAGE_ID`, `ANTHROPIC_API_KEY`, `DENYLIST`, `REVALIDATE_SECRET`, `NOTIFY_WEBHOOK_URL` |
-| Variables | `WEB_URL`, `VELOG_USERNAME`, (선택) `POST_INTERVAL_DAYS`, `POST_LEAD_DAYS`, `PUBLIC_IMAGE_HOSTS` |
+| `SESSION_SECRET`, `ENCRYPTION_KEY` | 32자 이상 랜덤 문자열 각각 (`openssl rand -base64 48`). **ENCRYPTION_KEY 를 바꾸면 저장된 Notion 토큰을 못 읽어요** |
+| `ANTHROPIC_API_KEY` | AI 기능 (운영자 부담) |
+| `AI_MONTHLY_LIMIT` | 사용자당 월 AI 호출 수 (기본 30) |
+| `ADMIN_GITHUB_IDS` | 관리자 GitHub 숫자 ID (AI 무제한, 1인용 시절 캡처 열람) |
+| `CRON_SECRET` | Vercel Cron 인증 (자동 작업) |
+| `CONTACT_EMAIL` | (선택) 약관·방침의 문의처. 없으면 GitHub Issues |
 
-| 워크플로 | 일정 (KST) | 하는 일 |
+전체 목록과 설명: [.env.example](.env.example)
+
+### 5. 자동 작업 (Vercel Cron)
+`apps/web/vercel.json` 이 매일 사용자별로 실행해요 (GitHub Actions 불필요).
+
+| 경로 | 시각 (KST) | 하는 일 |
 |---|---|---|
-| `weekly-digest` | 금 18:00 | 미처리 Work Log → 마스킹 → Claude 정리 → Records/Metrics(초안), 성과 후보(추천됨), 글감 |
-| `draft-posts` | 매일 10:17 | 포스팅 주기가 됐으면 가장 오래된 글감으로 초안 작성 → 목표일 설정 → 알림 |
-| `publish` | ⏸ 비활성화 | velog 자동 발행(비공식 API). 코드는 보존, 수동 실행 + `AUTO_PUBLISH=1` 일 때만 동작 |
-| `sync-rss` | 매일 23:41 | velog RSS 로 발행 URL 기록, 직접 쓴 글도 Posts 에 추가 |
+| `/api/cron/weekly-digest` | 매일 18:00 확인 → 사용자별 7일마다 (처음은 금요일) | 미처리 Work Log → 마스킹 → Claude 정리 → Records/Metrics(초안), 성과 후보, 글감 |
+| `/api/cron/draft-posts` | 매일 10:17 | 포스팅 주기가 된 사용자만 초안 작성 → 목표일 → 알림 |
+| `/api/cron/sync-rss` | 매일 23:41 | velog 아이디를 등록한 사용자의 RSS → 발행 URL 기록 |
 
-모든 배치는 `workflow_dispatch` 로 수동 실행 가능하고, 로컬에서는 `--dry-run` 으로 Notion 에 쓰지 않고 결과만 볼 수 있어요.
+- Notion API 한도를 지키려고 사용자를 순서대로 처리하고, 시간 안에 못 끝낸 사용자는 다음 실행에서 이어서 해요.
+- 사용자는 설정 화면에서 "지금 실행" 할 수 있어요 (AI 한도는 그대로 적용).
+- AI 한도를 다 쓰면 그 주기는 건너뛰고 알림을 보내요.
 
-```bash
-pnpm job:weekly -- --dry-run
-```
+### 1인용에서 옮겨 오기 (기존 데이터 유지)
+1. 위 셋업 후 본인 GitHub 로 로그인 → **Notion 연결** 에서 기존 CareerSync 상위 페이지를 선택 → **"기존 CareerSync DB 를 찾아서 연결했어요"** (DB 7개 + 이력서 페이지를 제목으로 찾아 재사용)
+2. 설정 화면에 이름·한 줄 소개·금지어(DENYLIST)·velog·알림 웹훅을 옮겨 적기
+3. `ADMIN_GITHUB_IDS` 에 본인 ID → 예전 캡처(`captures/…`) 계속 열람 가능
+4. 이제 필요 없는 Vercel 환경변수: `ALLOWED_GITHUB_ID`, `NOTION_TOKEN`, `NOTION_DS_*`, `NOTION_RESUME_PAGE_ID`, `DENYLIST`, `RESUME_NAME`, `RESUME_HEADLINE`
+5. GitHub Actions 의 weekly-digest / draft-posts / sync-rss 워크플로는 삭제됐어요 (Vercel Cron 으로 대체). 레포 Secrets 는 정리해도 돼요.
 
-## Claude 인증 (API 키 만료 걱정 없이)
-API 키는 코드로 자동 갱신할 수 없어요 (갱신 토큰이 없고, 새 키 발급은 Console 에서만). 대신 **SDK 가 스스로 토큰을 발급·갱신하는 방식**을 쓰면 돼요.
+## 사용자: 시작하기
+1. `GitHub 로 시작하기` → 가입
+2. Notion 에 빈 페이지(예: `CareerSync`) 만들기 → `Notion 연결하기` → 그 페이지 선택
+3. `이 페이지에 준비하기` → DB 7개 + 이력서 페이지 자동 생성 (1분 정도)
+4. 설정에서 이름·금지어·알림 웹훅 입력 → Notion Work Log 에 기록 시작
 
-| 어디서 | 방법 | 갱신 |
-|---|---|---|
-| 내 PC | `ant auth login` 후 `.env` 의 `ANTHROPIC_API_KEY` 를 비워 둠 | 자동 (가끔 재로그인) |
-| GitHub Actions | **Workload Identity Federation** — 실행마다 GitHub OIDC 토큰 → 단기 Anthropic 토큰 | 자동 |
-| 어디서나 (대안) | `ANTHROPIC_API_KEY` | 만료 시 직접 교체 (401 이면 안내 메시지 출력) |
-| Vercel 대시보드 (공고 맞춤 AI) | `ANTHROPIC_API_KEY` | 만료 시 직접 교체 |
-
-연결 확인 (curl "Hello, world" 테스트와 같은 역할):
+## Claude 인증 (로컬 CLI)
+대시보드(Vercel)는 `ANTHROPIC_API_KEY` 를 써요. 로컬 CLI(`pnpm job:*`)는 `ant auth login` 으로 키 없이 실행할 수 있어요.
 
 ```bash
 pnpm check:claude
 ```
-
-**GitHub Actions 에 WIF 설정** (Console 의 admin/owner 권한 필요)
-1. https://platform.claude.com/settings/workload-identity-federation → **Connect workload** → GitHub Actions
-   - Issuer: `https://token.actions.githubusercontent.com`
-   - Rule 조건: subject `repo:JangRuBin2/dev_career_sync:ref:refs/heads/main`, audience `https://api.anthropic.com`, scope `workspace:developer`
-2. 레포 Settings → Secrets and variables → Actions → **Variables** 에 등록:
-   `ANTHROPIC_FEDERATION_RULE_ID`(`fdrl_…`), `ANTHROPIC_ORGANIZATION_ID`, `ANTHROPIC_SERVICE_ACCOUNT_ID`(`svac_…`), (여러 워크스페이스면) `ANTHROPIC_WORKSPACE_ID`
-3. 끝. `ANTHROPIC_FEDERATION_RULE_ID` 가 있으면 워크플로가 자동으로 WIF 를 쓰고 `ANTHROPIC_API_KEY` Secret 은 무시해요.
 
 ## 이력서 업데이트 흐름
 
@@ -135,7 +134,7 @@ pnpm check:claude
 | `reference/<프로젝트>.md` | 프로젝트 화면 `toolkit 레퍼런스 복사` |
 | `companies/<회사>/이력서.md` | 맞춤본 화면 `메모 포함 복사` |
 
-> AI 생성은 대시보드(Vercel)에서 실행되므로 Vercel 환경변수에도 `ANTHROPIC_API_KEY` 가 필요해요. 맞춤본은 비공개 Blob 에 저장돼요 (로컬 개발에선 `.careersync/`).
+> 맞춤본은 사용자별 비공개 Blob(`users/<id>/resume-tailored/`)에 저장돼요 (로컬 개발에선 `.careersync/`). AI 생성은 월 한도(`AI_MONTHLY_LIMIT`)에 포함돼요.
 
 ## 블로그 발행 방식
 글 **작성**까지만 자동화하고 **발행은 직접** 해요 (블로그마다 API 를 연동하지 않기 위해).

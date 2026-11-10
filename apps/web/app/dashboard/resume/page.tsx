@@ -6,13 +6,15 @@ import { ResumeDocument } from "@/components/resume-document";
 import { list } from "@vercel/blob";
 import { renderResume } from "@careersync/core";
 import { Button, Card, CardTitle, PageHeader } from "@/components/ui";
+import { userPrefix } from "@/lib/blob";
+import { profileOf, requireReady } from "@/lib/context";
 import { getAchievements, getProjects } from "@/lib/data";
 import { applyResumeAction } from "../actions";
 
-async function history() {
+async function history(userId: string) {
   if (!process.env.BLOB_PRIVATE_READ_WRITE_TOKEN) return [];
   try {
-    const res = await list({ prefix: "resume-history/", token: process.env.BLOB_PRIVATE_READ_WRITE_TOKEN, limit: 20 });
+    const res = await list({ prefix: `${userPrefix(userId)}resume-history/`, token: process.env.BLOB_PRIVATE_READ_WRITE_TOKEN, limit: 20 });
     return res.blobs.sort((a, b) => b.pathname.localeCompare(a.pathname));
   } catch {
     return [];
@@ -21,15 +23,16 @@ async function history() {
 
 export default async function ResumePage({ searchParams }: { searchParams: Promise<{ applied?: string }> }) {
   const { applied } = await searchParams;
-  const [projects, achievements, versions] = await Promise.all([getProjects(), getAchievements(["확인됨", "새 프로젝트"]), history()]);
+  const ctx = await requireReady();
+  const [projects, achievements, versions] = await Promise.all([getProjects(), getAchievements(["확인됨", "새 프로젝트"]), history(ctx.userId)]);
   const markdown = renderResume({
-    profile: { name: process.env.RESUME_NAME, headline: process.env.RESUME_HEADLINE },
+    profile: profileOf(ctx),
     projects,
     achievements,
   });
   // 제출·PDF 용 문서에는 자동 생성 표시를 뺀다 (Notion 페이지에는 남김)
   const doc = markdown.replace(/^> CareerSync 자동 생성.*\n/m, "");
-  const notionUrl = process.env.NOTION_RESUME_PAGE_ID ? `https://www.notion.so/${process.env.NOTION_RESUME_PAGE_ID.replace(/-/g, "")}` : null;
+  const notionUrl = ctx.resumePageId ? `https://www.notion.so/${ctx.resumePageId.replace(/-/g, "")}` : null;
 
   return (
     <>
@@ -70,7 +73,7 @@ export default async function ResumePage({ searchParams }: { searchParams: Promi
             <ul className="space-y-1 text-sm">
               {versions.map((v) => (
                 <li key={v.pathname} className="tabular-nums text-muted">
-                  {new Date(v.pathname.replace("resume-history/", "").replace(".md", "")).toLocaleString("ko-KR", { timeZone: "Asia/Seoul" })}
+                  {new Date(v.pathname.split("/").pop()!.replace(".md", "")).toLocaleString("ko-KR", { timeZone: "Asia/Seoul" })}
                 </li>
               ))}
             </ul>

@@ -17,11 +17,14 @@ export function TailorForm({
   material,
   originResume,
   action,
+  usage,
 }: {
   material: TailorMaterial;
   originResume: string;
   action: (fd: FormData) => Promise<ActionState>;
+  usage: { used: number; limit: number | null };
 }) {
+  const exhausted = usage.limit !== null && usage.used >= usage.limit;
   const [company, setCompany] = useState("");
   const [position, setPosition] = useState("");
   const [jd, setJd] = useState("");
@@ -53,11 +56,16 @@ export function TailorForm({
             <input name="focus" value={focus} onChange={(e) => setFocus(e.target.value)} placeholder="예: 대용량 트래픽 경험, 성능 개선 수치" />
           </Field>
           <div className="flex flex-wrap items-center gap-2">
-            <Button>AI 로 맞춤 이력서 만들기</Button>
+            {exhausted ? (
+              <span className="rounded-lg bg-surface-2 px-3 py-1.5 text-sm text-muted">이번 달 AI 한도를 다 썼어요</span>
+            ) : (
+              <Button>AI 로 맞춤 이력서 만들기</Button>
+            )}
             <CopyButton text={prompt} label="프롬프트 복사 (AI 직접 사용)" />
           </div>
           <p className="text-xs text-muted">
             AI 생성은 1~2분 걸려요. 근거에 없는 숫자·기술은 자동으로 걸러지고, 원본 이력서는 바뀌지 않아요.
+            {usage.limit !== null && ` · 이번 달 AI 사용 ${usage.used}/${usage.limit}회`}
           </p>
         </ActionForm>
       </Card>

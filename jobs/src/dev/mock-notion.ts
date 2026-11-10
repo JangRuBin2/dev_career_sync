@@ -5,11 +5,14 @@
  *   pnpm mock:notion            # http://localhost:4010
  *   NOTION_BASE_URL=http://localhost:4010 NOTION_TOKEN=mock ... pnpm dev
  *
- * 지원: data source query(필터 일부), page 조회/생성/수정, page markdown 조회/수정
+ * 지원: data source query(필터 일부), page 조회/생성/수정, page markdown 조회/수정,
+ *       OAuth(authorize/token/refresh/revoke), search, block children, database 조회 — 여러 사용자용 온보딩 확인용
+ *
+ * OAuth 흐름 확인: 처음 발급하는 토큰은 일부러 "만료"(401) 상태라서, 대시보드가 refresh_token 으로 갱신하는지 볼 수 있다.
  */
 import { createServer, type IncomingMessage } from "node:http";
 import { randomUUID } from "node:crypto";
-import { DB_ENV, DB_KEYS, DB_SPECS, P, type DbKey } from "@careersync/core/notion";
+import { DB_ENV, DB_KEYS, DB_SPECS, DB_TITLES, P, RESUME_PAGE_TITLE, type DbKey } from "@careersync/core/notion";
 
 type Prop = { type: string; [k: string]: unknown };
 type Page = { object: "page"; id: string; url: string; parent: { data_source_id: string }; properties: Record<string, Prop>; markdown: string; created_time: string; last_edited_time: string };
@@ -102,6 +105,7 @@ function seed() {
     [P.workLog.date]: date("2026-11-04"),
     [P.workLog.content]: x("팀 코드리뷰 체크리스트 작성"),
     [P.workLog.type]: sel("협업"),
+    [P.workLog.processed]: { checkbox: false },
   });
 
   const r1 = insert("records", {
@@ -203,6 +207,23 @@ function seed() {
   });
 }
 
+// ---------- OAuth / 온보딩 ----------
+/** search 에 보이는 "CareerSync" 상위 페이지 — 아래에 DB 7개와 이력서 페이지가 이미 있는 것처럼 응답 */
+const ROOT_PAGE_ID = "11111111-2222-4333-8444-555555555555";
+const EXPIRED_TOKEN = "mock-expired";
+const rootPage = {
+  object: "page",
+  id: ROOT_PAGE_ID,
+  url: "https://www.notion.so/mock-careersync",
+  last_edited_time: new Date().toISOString(),
+  parent: { type: "workspace", workspace: true },
+  properties: { title: { type: "title", title: [{ plain_text: "CareerSync", text: { content: "CareerSync" } }] } },
+};
+const rootChildren = () => [
+  ...DB_KEYS.map((k) => ({ object: "block", id: `db-${k}`, type: "child_database", child_database: { title: DB_TITLES[k] } })),
+  { object: "block", id: "resume-page", type: "child_page", child_page: { title: RESUME_PAGE_TITLE } },
+];
+
 // ---------- 필터 ----------
 type Filter = { and?: Filter[]; or?: Filter[]; property?: string; [k: string]: unknown };
 function matches(page: Page, f?: Filter): boolean {
@@ -242,6 +263,48 @@ createServer(async (req, res) => {
     const url = new URL(req.url ?? "/", `http://localhost:${PORT}`);
     const path = url.pathname.replace(/^\/v1/, "");
     let m: RegExpMatchArray | null;
+
+    // OAuth: 동의 화면 없이 바로 callback 으로
+    if (req.method === "GET" && path === "/oauth/authorize") {
+      const back = new URL(url.searchParams.get("redirect_uri") ?? "/");
+      back.searchParams.set("code", "mock-code");
+      back.searchParams.set("state", url.searchParams.get("state") ?? "");
+      res.writeHead(302, { Location: back.toString() });
+      return res.end();
+    }
+    if (req.method === "POST" && path === "/oauth/token") {
+      const b = (await body(req)) as { grant_type?: string };
+      const fresh = b.grant_type === "refresh_token";
+      console.log(`[mock] oauth/token grant=${b.grant_type}`);
+      return send(200, {
+        access_token: fresh ? `mock-access-${Date.now()}` : EXPIRED_TOKEN,
+        token_type: "bearer",
+        refresh_token: "mock-refresh",
+        bot_id: "mock-bot",
+        workspace_id: "mock-workspace",
+        workspace_name: "Mock 워크스페이스",
+        workspace_icon: null,
+        owner: { type: "workspace", workspace: true },
+        duplicated_template_id: null,
+      });
+    }
+    if (req.method === "POST" && (path === "/oauth/revoke" || path === "/oauth/introspect")) return send(200, { active: false });
+    if (req.headers.authorization === `Bearer ${EXPIRED_TOKEN}`) {
+      return send(401, { object: "error", status: 401, code: "unauthorized", message: "API token is invalid." });
+    }
+
+    if (req.method === "POST" && path === "/search") {
+      return send(200, { object: "list", results: [rootPage], has_more: false, next_cursor: null, type: "page_or_data_source", page_or_data_source: {} });
+    }
+    if (req.method === "GET" && (m = path.match(/^\/blocks\/([^/]+)\/children$/))) {
+      const results = m[1] === ROOT_PAGE_ID ? rootChildren() : [];
+      return send(200, { object: "list", results, has_more: false, next_cursor: null, type: "block", block: {} });
+    }
+    if (req.method === "GET" && (m = path.match(/^\/databases\/db-([^/]+)$/))) {
+      const key = m[1] as DbKey;
+      if (!DS[key]) return send(404, { object: "error", code: "object_not_found", message: "not found" });
+      return send(200, { object: "database", id: `db-${key}`, data_sources: [{ id: DS[key], name: DB_TITLES[key] }] });
+    }
 
     if (req.method === "POST" && (m = path.match(/^\/data_sources\/([^/]+)\/query$/))) {
       const b = await body(req);

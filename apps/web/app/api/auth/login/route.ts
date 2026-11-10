@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { STATE_COOKIE } from "@/lib/session";
+import { STATE_COOKIE, safeNext } from "@/lib/session";
 
 export async function GET(request: NextRequest) {
   const clientId = process.env.GITHUB_CLIENT_ID;
@@ -14,8 +14,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
-  const next = request.nextUrl.searchParams.get("next") ?? "/dashboard";
-  const state = `${crypto.randomUUID()}|${next.startsWith("/") ? next : "/dashboard"}`;
+  const state = `${crypto.randomUUID()}|${safeNext(request.nextUrl.searchParams.get("next"))}`;
   const authorize = new URL("https://github.com/login/oauth/authorize");
   authorize.searchParams.set("client_id", clientId);
   authorize.searchParams.set("redirect_uri", new URL("/api/auth/callback", request.url).toString());
