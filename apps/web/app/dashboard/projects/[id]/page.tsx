@@ -1,9 +1,12 @@
 import { ActionForm } from "@/components/action-form";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { formatImprovement, renderProjectSection } from "@careersync/core";
+import { renderProjectSection } from "@careersync/core";
+import { renderToolkitReference } from "@careersync/core/tailor";
 import { AttachmentGallery, LinkForm } from "@/components/attachments";
+import { CopyButton } from "@/components/copy-button";
 import { ImageUploader } from "@/components/image-uploader";
+import { MetricDumbbell, MetricLegend } from "@/components/metric-dumbbell";
 import { Badge, Button, Card, CardTitle, Empty, Field, PageHeader, formatPeriod } from "@/components/ui";
 import { getAchievements, getAttachments, getMetrics, getPosts, getProject, getRecords } from "@/lib/data";
 import { updateProjectLinksAction } from "../../actions";
@@ -31,6 +34,10 @@ export default async function ProjectDetail({ params }: { params: Promise<{ id: 
         description={`${formatPeriod(project.period)}${project.role ? ` · ${project.role}` : ""}`}
         action={
           <div className="flex flex-wrap gap-2">
+            <CopyButton
+              text={renderToolkitReference({ project, records, metrics: projectMetrics, achievements: projectAchievements })}
+              label="toolkit 레퍼런스 복사"
+            />
             {project.publicUrl && (
               <a href={project.publicUrl} target="_blank" rel="noreferrer" className="rounded-lg border border-line px-3 py-1.5 text-sm hover:border-accent">
                 🔗 공개 사이트
@@ -93,28 +100,14 @@ export default async function ProjectDetail({ params }: { params: Promise<{ id: 
           )}
         </Card>
         <Card>
-          <CardTitle>성과 지표 ({projectMetrics.length})</CardTitle>
+          <CardTitle action={projectMetrics.length > 0 ? <MetricLegend /> : undefined}>성과 지표 ({projectMetrics.length})</CardTitle>
           {projectMetrics.length === 0 ? (
             <Empty>지표가 없어요.</Empty>
           ) : (
-            <ul className="space-y-3">
-              {projectMetrics.map((m) => {
-                const pct = Math.max(0, Math.min(100, Math.abs(m.improvement ?? 0)));
-                return (
-                  <li key={m.id}>
-                    <div className="flex justify-between text-sm">
-                      <span>{m.name}</span>
-                      <span className="font-semibold tabular-nums text-good">{formatImprovement(m.improvement)}</span>
-                    </div>
-                    <div className="mt-1 h-1.5 rounded-full bg-surface-2">
-                      <div className="h-1.5 rounded-full bg-good" style={{ width: `${pct}%` }} />
-                    </div>
-                    <div className="mt-1 text-xs text-muted">
-                      {m.before} → {m.after} {m.unit} · {m.method || "측정 방법 미기재"}
-                    </div>
-                  </li>
-                );
-              })}
+            <ul className="space-y-4">
+              {projectMetrics.map((m) => (
+                <MetricDumbbell key={m.id} metric={m} />
+              ))}
             </ul>
           )}
           {projectPosts.length > 0 && (

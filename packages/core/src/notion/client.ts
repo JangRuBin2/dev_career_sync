@@ -3,12 +3,14 @@ import { DB_ENV, type DbKey } from "./schema";
 
 export type DataSourceIds = Record<DbKey, string>;
 
-export function createNotion(token = process.env.NOTION_TOKEN): Client {
+export function createNotion(token = process.env.NOTION_TOKEN, opts: { fetch?: typeof fetch } = {}): Client {
   if (!token) throw new Error("NOTION_TOKEN 이 설정되지 않았습니다.");
   // SDK 기본 버전은 2025-09-03 (data source 기반). 명시적으로 고정한다.
   return new Client({
     auth: token,
     notionVersion: "2025-09-03",
+    // 사용자별 OAuth 토큰 자동 갱신(401 → refresh → 재시도)용
+    ...(opts.fetch ? { fetch: opts.fetch } : {}),
     // 로컬 개발용 mock 서버(pnpm mock:notion)를 가리킬 때만 설정
     ...(process.env.NOTION_BASE_URL ? { baseUrl: process.env.NOTION_BASE_URL } : {}),
   });

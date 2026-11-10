@@ -3,7 +3,7 @@
 > 회사에서 일하며 남긴 기록을 **성과 데이터 → 이력서 / 포트폴리오 / 블로그 초안** 으로 자동 파생시키는 개인 커리어 관리 시스템
 
 - 작성일: 2026-11-04
-- 상태: v1 기획 확정, Phase 0~3 코드 완료 (블로그는 2026-11-04 결정으로 "초안 작성까지만 자동화")
+- 상태: v1 기획 확정, Phase 0~3 코드 완료 (블로그는 2026-11-04 결정으로 "초안 작성까지만 자동화"), Phase 4 일부(지표 차트·PDF·JD 맞춤 이력서) 2026-11-10 코드 완료, **2026-11-10 여러 사용자용으로 전환**
 
 ---
 
@@ -59,6 +59,16 @@
 | **Claude API** | 요약, 성과/지표 추출, 프로젝트 매칭, 초안 작성 | 구조화 출력(JSON) 품질 |
 
 ### 결정 기록 (ADR)
+
+**2026-11-10 — 1인용 → 여러 사용자용**
+- 가입: 누구나 GitHub 로그인 (`users` 테이블, 세션 sub = 사용자 uuid). 관리자는 `ADMIN_GITHUB_IDS`.
+- Notion: 사용자별 공개 통합 OAuth. 토큰은 AES-256-GCM 으로 암호화해 Neon Postgres 에 저장, 401 이면 refresh_token 으로 자동 갱신.
+  온보딩에서 고른 페이지 아래에 DB 7개를 만들거나, 이미 있으면(제목으로) 찾아 재사용.
+- 사용자 설정(이름·금지어·velog·포스팅 주기·알림 웹훅)은 env 대신 DB. 금지어·웹훅은 암호화, 웹훅은 SSRF 방지로 Slack/Discord 만.
+- AI: 운영자 키 + 사용자당 월 한도(`AI_MONTHLY_LIMIT`, advisory lock 으로 동시 요청에도 초과 없음). 실패하면 사용량 되돌림.
+- 배치: GitHub Actions → Vercel Cron 이 사용자별로 실행 (`job_runs` 로 주기 판단, 시간 예산 초과분은 다음 실행에서 이어서).
+- 격리: 캐시 태그 `u:<userId>:*`, Blob 경로 `users/<userId>/…`, 파일 열람·공개 승격 시 경로 소유 확인, webhook 은 workspace_id 로 사용자 매핑.
+- 공개 가입에 필요한 개인정보처리방침·이용약관·계정 삭제(토큰 폐기 + 파일·DB 삭제) 추가.
 
 **ADR-1. 이미지 저장소: Vercel Blob (R2 대신)**
 - Notion File Upload API로 올리면 API가 돌려주는 파일 URL이 **1시간 뒤 만료**되어 대시보드·velog에 직접 걸 수 없다 → 외부 저장소 필요.
@@ -252,6 +262,26 @@ Notion 이력서 페이지의 해당 프로젝트 섹션만 재렌더 + 변경 �
 ```
 - 확인 없이 이력서가 바뀌는 경로는 없다.
 
+### 4.3.1 채용공고 맞춤 이력서 (Phase 4)
+[resume-ai-toolkit](https://github.com/JangRuBin2/resume-ai-toolkit) 의 워크플로우를 대시보드로 옮겼다.
+원본(Notion 이력서 페이지)은 그대로 두고, 공고마다 회사별 버전을 따로 만든다.
+```
+공고 붙여넣기 (회사 · 포지션 · 전문 · 강조 포인트)
+   ├─ (AI 없이, 입력하는 즉시) 겹치는 기술 / 공고에만 있는 키워드 / 관련 프로젝트
+   ├─ [프롬프트 복사] → Claude.ai · ChatGPT 에 직접 (toolkit Step 3 프롬프트: 공고 + 원본 + 레퍼런스 + 조건)
+   └─ [AI 로 만들기] → Claude: 공고 분석(필수/우대/직무 핵심) → 요건별 근거 매핑 → 맞춤본
+         ▼ 검증 (validateTailored)
+         - 근거 키(A*/R*/M*)가 없는 문장 제거
+         - 근거 원문에 없는 숫자 → 원래 성과 문장으로 되돌리거나 제거
+         - 내 기록에 없는 기술은 기술스택에서 제거 (공고에만 있는 기술은 '부족한 항목')
+         - 미확정(추천됨·초안) 근거만 쓴 문장은 "제출 전 확인"에 표시
+         ▼
+회사별 버전 저장 (비공개 Blob resume-tailored/<id>.json, 생성 당시 근거 스냅샷 포함)
+   → 제출용 Markdown / 서식 있는 텍스트 복사, PDF 저장, 변경 포인트 메모(toolkit companies/<회사>/이력서.md 형식)
+```
+- LLM 에 보내는 근거는 DENYLIST 로 마스킹한다. 공고 안의 지시문은 분석 대상일 뿐 따르지 않도록 시스템 프롬프트에 명시.
+- toolkit 연계: 이력서 화면의 Markdown = `origin/이력서.md`, 프로젝트 화면의 "toolkit 레퍼런스 복사" = `reference/<프로젝트>.md` (면접 예상 질문에 지표의 측정 방법을 답변 메모로 채움).
+
 ### 4.4 블로그 주기 포스팅 (초안 자동 작성, 발행은 직접)
 ```
 소재(주간 배치가 추천) → [draft-posts: 주기마다] 초안 자동 작성 → 검토대기
@@ -283,10 +313,12 @@ Notion 이력서 페이지의 해당 프로젝트 섹션만 재렌더 + 변경 �
 | `/dashboard` | 홈 | 이번 주 기록 수, 확인 대기, 지표 Top 5, 다음 발행, 이력서 최종 업데이트, 프로젝트 타임라인 |
 | `/dashboard/inbox` | Inbox | 성과 후보 프로젝트 배정, Record/Metric 확정 |
 | `/dashboard/projects` | 프로젝트 목록 | 카드 (대표 이미지·기간·스택·공개 링크 뱃지) |
-| `/dashboard/projects/[id]` | 프로젝트 상세 | 개요, Records 타임라인, 지표 표, 캡처 갤러리, 링크 카드, 관련 글 |
+| `/dashboard/projects/[id]` | 프로젝트 상세 | 개요, Records 타임라인, 지표 Before→After 차트, 캡처 갤러리, 링크 카드, 관련 글, toolkit 레퍼런스 복사 |
 | `/dashboard/records/[id]` | Record 상세 | 요약, 핵심 성과, 지표, 이미지, 원본 로그 |
 | `/dashboard/posts` | 포스팅 | 소재 큐, 상태별 목록, 목표일·검토, 플랫폼별 복사, 발행 완료 기록 |
-| `/dashboard/resume` | 이력서 | 미리보기, Markdown 내보내기 |
+| `/dashboard/resume` | 이력서 | 미리보기, Markdown 복사, PDF 저장 |
+| `/dashboard/resume/tailor` | 공고 맞춤 이력서 | 공고 입력, 키워드 매칭(AI 없이), 프롬프트 복사, AI 생성, 회사별 버전 목록 |
+| `/dashboard/resume/tailor/[id]` | 맞춤본 상세 | 제출용 미리보기·복사·PDF, 요건 매핑, 부족한 항목, 제출 전 확인, 변경 포인트 메모 |
 | `/dashboard/upload` | 업로드 | 이미지(블러 도구) / 링크 첨부 |
 
 ---
@@ -328,7 +360,8 @@ careersync/
 │     ├─ notion/            # 스키마, 클라이언트, 리포지토리, 셋업
 │     ├─ sanitize/          # 금지어 마스킹
 │     ├─ metrics/           # 개선율 계산
-│     ├─ llm/               # 주간 다이제스트 프롬프트·파싱
+│     ├─ llm/               # 주간 다이제스트 · 블로그 초안 · 공고 맞춤 이력서 (프롬프트·파싱)
+│     ├─ tailor/            # 공고 맞춤: 근거 묶음, 키워드 매칭, 검증, 렌더, toolkit 내보내기
 │     ├─ publish/           # 플랫폼별 내보내기(Markdown/HTML), 발행 전 점검
 │     ├─ velog/             # RSS (+ 보존: 비공식 GraphQL 자동 발행, 비활성화)
 │     └─ resume/            # 이력서 렌더(Markdown/Notion 블록)
@@ -344,14 +377,14 @@ careersync/
 | `NOTION_PARENT_PAGE_ID` | setup | DB를 생성할 상위 페이지 |
 | `NOTION_DS_*` | web, jobs | 각 DB의 data source ID (setup 결과) |
 | `NOTION_RESUME_PAGE_ID` | web, jobs | 이력서 페이지 |
-| `ANTHROPIC_API_KEY` | jobs | 대안. 권장은 로컬 `ant auth login`, Actions 는 WIF (`ANTHROPIC_FEDERATION_RULE_ID` 등, 자동 갱신) |
+| `ANTHROPIC_API_KEY` | jobs, web(공고 맞춤 AI) | 대안. 권장은 로컬 `ant auth login`, Actions 는 WIF (`ANTHROPIC_FEDERATION_RULE_ID` 등, 자동 갱신) |
 | `BLOB_PRIVATE_READ_WRITE_TOKEN` / `BLOB_PUBLIC_READ_WRITE_TOKEN` | web | 두 store 토큰 |
 | `GITHUB_CLIENT_ID` / `GITHUB_CLIENT_SECRET` / `ALLOWED_GITHUB_ID` | web | OAuth |
 | `SESSION_SECRET` | web | 32자 이상 |
 | `REVALIDATE_SECRET` | web, jobs | 배치 → 캐시 갱신 |
 | `VELOG_USERNAME` | jobs | RSS 동기화 |
 | `AUTO_PUBLISH` / `VELOG_ACCESS_TOKEN` / `VELOG_REFRESH_TOKEN` | jobs | 자동 발행(비활성화) 다시 켤 때만 |
-| `DENYLIST` | jobs | `회사명=A사,고객사=B사` 형식 |
+| `DENYLIST` | jobs, web | `회사명=A사,고객사=B사` 형식 |
 | `NOTIFY_WEBHOOK_URL` | jobs | Slack/Discord 알림 (선택) |
 
 ## 10. 로드맵
@@ -361,13 +394,14 @@ careersync/
 | **1** | 2주 | 대시보드 읽기(홈/프로젝트/상세), 이미지·링크 첨부(Blob, 모자이크) | ✅ 코드 완료 · mock 으로 E2E 확인 |
 | **2** | 2주 | 주간 배치, Inbox 프로젝트 배정 확인, 이력서 섹션 렌더·변경 이력 | ✅ 코드 완료 · mock 으로 E2E 확인 |
 | **3** | 2주 | 블로그 초안 자동 작성, 플랫폼별 복사(Markdown/HTML), 발행 기록, velog RSS 동기화 | ✅ 코드 완료 · mock 으로 E2E 확인 |
-| **4** | 이후 | 지표 차트, PDF, JD 맞춤 이력서, 공개 포트폴리오, Vision 검사 | ⏳ |
+| **4** | 이후 | ~~지표 차트~~, ~~PDF~~, ~~JD 맞춤 이력서~~ (2026-11-10 코드 완료 · mock 으로 E2E 확인), 공개 포트폴리오, Vision 검사 | 🔶 진행중 |
 
 ### 검증 현황 (2026-11-04)
 - 단위 테스트 36개 (마스킹, 개선율, 이력서 렌더/미리보기, 내보내기·발행 전 점검, 발행 정책(보존), RSS 파싱, LLM 결과 검증, 세션)
 - `pnpm mock:notion` (가짜 Notion API) 위에서 프로덕션 빌드로 E2E 확인:
   빠른 기록 → Inbox 배정(기존/새 프로젝트) → 미리보기 → 적용(성과·기록 확정 + 이력서 재렌더), 포스팅 검토·목표일, 플랫폼별 복사, 발행 완료 기록, 링크 첨부·사내 주소 차단, 인증 차단(307/401/403), 모바일 390px
-- **아직 실제 서비스로 검증하지 않은 부분**: Notion 실 API(특히 `setup:notion` 의 dual relation·수식 생성), Vercel Blob 업로드/공개 승격, Claude 주간 다이제스트 품질
+- (2026-11-10) 공고 맞춤 이력서: 단위 테스트 13개(근거 묶음·마스킹, 검증, 렌더, 키워드 매칭, toolkit 내보내기) + mock Notion · 가짜 Claude 응답으로 E2E (생성 → 저장 → 상세 → PDF 1쪽, 모바일 390px 가로 스크롤 없음)
+- **아직 실제 서비스로 검증하지 않은 부분**: 실제 Claude 의 공고 맞춤 결과 품질, Notion 실 API(특히 `setup:notion` 의 dual relation·수식 생성), Vercel Blob 업로드/공개 승격, Claude 주간 다이제스트 품질
 
 ## 11. 리스크
 | 리스크 | 영향 | 대응 |

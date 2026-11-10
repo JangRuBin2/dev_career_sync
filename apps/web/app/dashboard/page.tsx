@@ -11,7 +11,8 @@ function weekStart(today: string) {
   return addDays(today, 1 - day);
 }
 
-export default async function DashboardHome() {
+export default async function DashboardHome({ searchParams }: { searchParams: Promise<{ welcome?: string }> }) {
+  const { welcome } = await searchParams;
   const today = kstDate();
   const monday = weekStart(today);
   const [logs, projects, records, metrics, achievements, posts] = await Promise.all([
@@ -37,6 +38,14 @@ export default async function DashboardHome() {
   return (
     <>
       <PageHeader title="한눈에 보기" description={`${today} 기준 · 이번 주는 ${monday}부터`} />
+      {welcome && (
+        <p className="mb-4 rounded-lg bg-good-soft px-3 py-2 text-sm text-good">
+          {welcome === "existing"
+            ? "✓ 기존 CareerSync DB 를 찾아서 연결했어요."
+            : "✓ Notion 에 CareerSync DB 와 이력서 페이지를 만들었어요. Work Log 에 오늘 한 일을 기록해 보세요."}{" "}
+          설정에서 이름·금지어·알림을 채워 주세요.
+        </p>
+      )}
 
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
         <Stat label="이번 주 기록" value={`${weekLogs.length}건`} hint={weekLogs.length === 0 ? "오늘 한 일 2분만 적어 볼까요?" : weekLogs.at(-1)?.title} />

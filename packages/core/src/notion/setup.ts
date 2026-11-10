@@ -91,7 +91,7 @@ export async function setupNotionWorkspace(
   // 4단계: 이력서 페이지
   const resume = await notion.pages.create({
     parent: { page_id: parentPageId },
-    properties: { title: { title: [{ type: "text", text: { content: "📄 이력서 (자동 생성)" } }] } },
+    properties: { title: { title: [{ type: "text", text: { content: RESUME_PAGE_TITLE } }] } },
     markdown: "> 이 페이지는 CareerSync 가 자동으로 다시 그립니다. 직접 수정한 내용은 덮어써질 수 있어요.",
   } as Parameters<Client["pages"]["create"]>[0]);
   log(`✔ 이력서 페이지 생성 (${resume.id})`);
@@ -115,4 +115,67 @@ async function renameSyncedProperty(notion: Client, sourceDs: string, propName: 
     data_source_id: targetDs,
     properties: { [syncedId]: { name: newName } },
   } as DsUpdateArgs);
+}
+
+// ---------- 기존 워크스페이스 재사용 ----------
+
+type ChildBlock = { id: string; type: string; child_database?: { title: string }; child_page?: { title: string } };
+
+/**
+ * 상위 페이지 아래에 이미 CareerSync DB 7개가 있으면(1인용 시절 setup:notion 결과 등) 그 ID 를 찾는다.
+ * 하나라도 없으면 null → 새로 만든다.
+ */
+export async function findExistingWorkspace(
+  notion: Client,
+  parentPageId: string,
+): Promise<{ dataSources: DataSourceIds; resumePageId: string } | null> {
+  const children: ChildBlock[] = [];
+  let cursor: string | undefined;
+  do {
+    const res = (await notion.blocks.children.list({ block_id: parentPageId, start_cursor: cursor, page_size: 100 })) as unknown as {
+      results: ChildBlock[];
+      has_more: boolean;
+      next_cursor: string | null;
+    };
+    children.push(...res.results);
+    cursor = res.has_more ? (res.next_cursor ?? undefined) : undefined;
+  } while (cursor);
+
+  const ds = {} as DataSourceIds;
+  for (const key of DB_KEYS) {
+    const block = children.find((b) => b.type === "child_database" && b.child_database?.title === DB_TITLES[key]);
+    if (!block) return null;
+    const db = (await notion.databases.retrieve({ database_id: block.id })) as unknown as { data_sources?: { id: string }[] };
+    const first = db.data_sources?.[0];
+    if (!first) return null;
+    ds[key] = first.id;
+  }
+  const resume = children.find((b) => b.type === "child_page" && b.child_page?.title === RESUME_PAGE_TITLE);
+  if (!resume) return null;
+  return { dataSources: ds, resumePageId: resume.id };
+}
+
+export const RESUME_PAGE_TITLE = "📄 이력서 (자동 생성)";
+
+/** 연결된 워크스페이스에서 CareerSync 를 둘 수 있는 페이지 목록 (DB 행은 제외) */
+export async function listCandidatePages(notion: Client, limit = 50): Promise<{ id: string; title: string; url: string; editedAt: string }[]> {
+  const res = (await notion.search({
+    filter: { property: "object", value: "page" },
+    sort: { direction: "descending", timestamp: "last_edited_time" },
+    page_size: limit,
+  } as Parameters<Client["search"]>[0])) as unknown as {
+    results: {
+      id: string;
+      url: string;
+      last_edited_time: string;
+      parent: { type: string };
+      properties?: Record<string, { type: string; title?: { plain_text: string }[] }>;
+    }[];
+  };
+  return res.results
+    .filter((p) => p.parent.type === "page_id" || p.parent.type === "workspace" || p.parent.type === "block_id")
+    .map((p) => {
+      const titleProp = Object.values(p.properties ?? {}).find((v) => v.type === "title");
+      return { id: p.id, url: p.url, editedAt: p.last_edited_time, title: titleProp?.title?.map((t) => t.plain_text).join("") || "(제목 없음)" };
+    });
 }
