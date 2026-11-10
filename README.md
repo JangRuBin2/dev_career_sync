@@ -5,6 +5,7 @@
 - 📝 **기록은 한 번** — Notion Work Log 또는 대시보드 "빠른 기록"
 - 📦 **근거 보존** — 작업 정리·핵심 성과(Records)와 수치 데이터(Metrics)를 append-only 로 저장
 - 📥 **확인 후 반영** — 성과를 어느 프로젝트에 넣을지(기존/새 프로젝트) 고르고, 이력서 Before→After 미리보기 후 적용
+- 🎯 **공고 맞춤 이력서** — 채용공고를 붙여넣으면 원본은 그대로 두고 회사별 버전을 생성 (요건 매핑 · 부족 항목 · PDF). [resume-ai-toolkit](https://github.com/JangRuBin2/resume-ai-toolkit) 워크플로우와 호환
 - ✍️ **블로그 초안 자동 작성** — 주기마다 초안 작성 → 검토 → Markdown / 서식 있는 텍스트 / HTML 로 복사해 velog·티스토리·네이버 등에 **직접** 발행
 - 🖼️ **캡처·링크 첨부** — 브라우저에서 모자이크 후 비공개 Blob 에 저장, 마스킹 확인 시에만 공개 승격
 - 🔒 **보안 우선** — 금지어 마스킹 → LLM 검토 → 사람 승인
@@ -15,7 +16,7 @@
 
 ```
 apps/web        Next.js 16 대시보드 (Vercel 배포, Root Directory = apps/web)
-packages/core   Notion 스키마·리포지토리, 마스킹, 지표, 이력서 렌더, velog, LLM
+packages/core   Notion 스키마·리포지토리, 마스킹, 지표, 이력서 렌더·공고 맞춤, velog, LLM
 jobs            GitHub Actions 에서 도는 배치 (주간 다이제스트, 초안 작성, RSS)
 .github         CI + 스케줄 워크플로
 ```
@@ -93,6 +94,7 @@ API 키는 코드로 자동 갱신할 수 없어요 (갱신 토큰이 없고, �
 | 내 PC | `ant auth login` 후 `.env` 의 `ANTHROPIC_API_KEY` 를 비워 둠 | 자동 (가끔 재로그인) |
 | GitHub Actions | **Workload Identity Federation** — 실행마다 GitHub OIDC 토큰 → 단기 Anthropic 토큰 | 자동 |
 | 어디서나 (대안) | `ANTHROPIC_API_KEY` | 만료 시 직접 교체 (401 이면 안내 메시지 출력) |
+| Vercel 대시보드 (공고 맞춤 AI) | `ANTHROPIC_API_KEY` | 만료 시 직접 교체 |
 
 연결 확인 (curl "Hello, world" 테스트와 같은 역할):
 
@@ -116,6 +118,24 @@ pnpm check:claude
   → 미리보기 (이력서 섹션 Before → After diff)
   → 적용: 성과·근거 기록 확정 + Notion 이력서 페이지 재렌더 + 스냅샷(비공개 Blob)
 ```
+
+## 공고 맞춤 이력서
+[resume-ai-toolkit](https://github.com/JangRuBin2/resume-ai-toolkit) 의 "원본 보존 + 회사별 맞춤본" 방식을 대시보드에 넣었어요.
+
+1. 대시보드 → 이력서 → `공고 맞춤 이력서`
+2. 회사 · 포지션 · 공고 전문(+ 강조 포인트)을 붙여넣으면, AI 없이도 바로 **겹치는 기술 / 공고에만 있는 키워드 / 관련 프로젝트**를 보여줘요.
+3. 둘 중 하나로 만들기
+   - `AI 로 맞춤 이력서 만들기` — Claude 가 필수/우대 요건을 내 근거(성과·기록·지표)에 매핑하고 맞춤본을 써요. 근거에 없는 숫자·기술은 자동으로 걸러지고, 미확정 근거로 쓴 문장은 "제출 전 확인"에 떠요.
+   - `프롬프트 복사` — toolkit Step 3 프롬프트(공고 + 원본 이력서 + 프로젝트 레퍼런스 + 조건)를 Claude.ai · ChatGPT 에 직접 붙여넣기
+4. 회사별 버전 화면에서 제출용 Markdown / 서식 있는 텍스트 복사, `PDF 저장`(브라우저 인쇄), 변경 포인트 메모 확인
+
+| toolkit 파일 | CareerSync 에서 |
+|---|---|
+| `origin/이력서.md` | 이력서 화면 `Markdown 복사` |
+| `reference/<프로젝트>.md` | 프로젝트 화면 `toolkit 레퍼런스 복사` |
+| `companies/<회사>/이력서.md` | 맞춤본 화면 `메모 포함 복사` |
+
+> AI 생성은 대시보드(Vercel)에서 실행되므로 Vercel 환경변수에도 `ANTHROPIC_API_KEY` 가 필요해요. 맞춤본은 비공개 Blob 에 저장돼요 (로컬 개발에선 `.careersync/`).
 
 ## 블로그 발행 방식
 글 **작성**까지만 자동화하고 **발행은 직접** 해요 (블로그마다 API 를 연동하지 않기 위해).

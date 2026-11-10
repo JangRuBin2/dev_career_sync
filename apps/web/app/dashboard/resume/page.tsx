@@ -1,4 +1,8 @@
+import Link from "next/link";
 import { ActionForm } from "@/components/action-form";
+import { CopyButton } from "@/components/copy-button";
+import { PrintButton } from "@/components/print-button";
+import { ResumeDocument } from "@/components/resume-document";
 import { list } from "@vercel/blob";
 import { renderResume } from "@careersync/core";
 import { Button, Card, CardTitle, PageHeader } from "@/components/ui";
@@ -23,6 +27,8 @@ export default async function ResumePage({ searchParams }: { searchParams: Promi
     projects,
     achievements,
   });
+  // 제출·PDF 용 문서에는 자동 생성 표시를 뺀다 (Notion 페이지에는 남김)
+  const doc = markdown.replace(/^> CareerSync 자동 생성.*\n/m, "");
   const notionUrl = process.env.NOTION_RESUME_PAGE_ID ? `https://www.notion.so/${process.env.NOTION_RESUME_PAGE_ID.replace(/-/g, "")}` : null;
 
   return (
@@ -31,14 +37,18 @@ export default async function ResumePage({ searchParams }: { searchParams: Promi
         title="이력서"
         description="확인된 성과만 모아 그려요. Inbox 에서 배정을 적용하면 자동으로 다시 반영돼요."
         action={
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
+            <Link href="/dashboard/resume/tailor" className="rounded-lg bg-accent px-3 py-1.5 text-sm font-medium text-white hover:opacity-90">
+              공고 맞춤 이력서
+            </Link>
+            <PrintButton />
             {notionUrl && (
               <a href={notionUrl} target="_blank" rel="noreferrer" className="rounded-lg border border-line px-3 py-1.5 text-sm hover:border-accent">
                 Notion 이력서 열기
               </a>
             )}
             <ActionForm action={applyResumeAction}>
-              <Button>Notion 에 다시 반영</Button>
+              <Button variant="secondary">Notion 에 다시 반영</Button>
             </ActionForm>
           </div>
         }
@@ -46,8 +56,11 @@ export default async function ResumePage({ searchParams }: { searchParams: Promi
       {applied && <p className="mb-4 rounded-lg bg-good-soft px-3 py-2 text-sm text-good">✓ Notion 이력서 페이지를 갱신했어요.</p>}
       <div className="grid gap-4 lg:grid-cols-3">
         <Card className="lg:col-span-2">
-          <CardTitle>미리보기 (Markdown)</CardTitle>
-          <pre className="whitespace-pre-wrap rounded-lg bg-surface-2 p-4 text-sm leading-relaxed">{markdown}</pre>
+          <CardTitle action={<CopyButton text={doc} label="Markdown 복사" />}>미리보기</CardTitle>
+          <ResumeDocument markdown={doc} print />
+          <p className="mt-4 border-t border-line pt-3 text-xs text-muted">
+            resume-ai-toolkit 을 함께 쓴다면 이 Markdown 을 <code>origin/이력서.md</code> 로 두고, 회사별 버전은 &quot;공고 맞춤 이력서&quot;에서 만들어요.
+          </p>
         </Card>
         <Card>
           <CardTitle>변경 이력</CardTitle>

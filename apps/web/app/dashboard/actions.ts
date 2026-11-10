@@ -3,11 +3,14 @@
 import { updateTag } from "next/cache";
 import { redirect, unstable_rethrow } from "next/navigation";
 import { put } from "@vercel/blob";
-import { renderResume } from "@careersync/core";
+import { parseDenylist, renderResume } from "@careersync/core";
+import { createAnthropic, explainAuthError, tailorResume } from "@careersync/core/llm";
+import { buildTailorMaterial } from "@careersync/core/tailor";
 import type { PostMode } from "@careersync/core/notion";
 import { TAGS, getRepo } from "@/lib/data";
 import { promoteToPublic } from "@/lib/blob";
 import { fetchOg } from "@/lib/og";
+import { deleteTailored, newTailoredId, saveTailored } from "@/lib/tailored-store";
 import { requireSession } from "@/lib/auth";
 import type { ActionState } from "@/lib/action-state";
 
@@ -75,6 +78,52 @@ export async function applyResumeAction(): Promise<ActionState> {
   return guard(async () => {
     await applyResume();
     redirect("/dashboard/resume?applied=1");
+  });
+}
+
+// ---------- 채용공고 맞춤 이력서 ----------
+
+/** 공고 + 내 근거로 회사별 맞춤본을 만들어 따로 저장 (원본 이력서는 그대로) */
+export async function tailorResumeAction(fd: FormData): Promise<ActionState> {
+  return guard(async () => {
+    const job = { company: str(fd, "company"), position: str(fd, "position"), text: str(fd, "jd"), focus: str(fd, "focus") || undefined };
+    if (!job.text) throw new Error("채용공고 내용을 붙여넣으세요");
+    if (job.text.length > 30_000) throw new Error("공고가 너무 길어요. 자격요건·우대사항·주요업무 위주로 줄여 주세요.");
+
+    const repo = getRepo();
+    const [projects, records, metrics, achievements] = await Promise.all([
+      repo.listProjects(),
+      repo.listRecords(),
+      repo.listMetrics(),
+      repo.listAchievements(),
+    ]);
+    const material = buildTailorMaterial({ projects, records, metrics, achievements, denylist: parseDenylist(process.env.DENYLIST) });
+
+    let result;
+    try {
+      result = await tailorResume(createAnthropic(), { job, material });
+    } catch (err) {
+      const auth = explainAuthError(err);
+      throw auth ? new Error(auth) : err;
+    }
+
+    const id = newTailoredId();
+    await saveTailored({
+      id,
+      createdAt: new Date().toISOString(),
+      job,
+      profile: { name: process.env.RESUME_NAME, headline: process.env.RESUME_HEADLINE },
+      material,
+      result,
+    });
+    redirect(`/dashboard/resume/tailor/${id}`);
+  });
+}
+
+export async function deleteTailoredAction(fd: FormData): Promise<ActionState> {
+  return guard(async () => {
+    await deleteTailored(str(fd, "id"));
+    redirect("/dashboard/resume/tailor?deleted=1");
   });
 }
 
