@@ -6,7 +6,7 @@ import { del, get, list, put } from "@vercel/blob";
  * - private: 원본 캡처 (인증된 /api/files 라우트로만 열람)
  * - public : 마스킹 확인 후 공개 승격된 이미지 (velog·포트폴리오용 영구 URL)
  */
-const privateToken = () => process.env.BLOB_PRIVATE_READ_WRITE_TOKEN;
+const privateToken = () => process.env.BLOB_READ_WRITE_TOKEN;
 const publicToken = () => process.env.BLOB_PUBLIC_READ_WRITE_TOKEN;
 
 export const ALLOWED_IMAGE_TYPES = ["image/png", "image/jpeg", "image/webp", "image/gif"];

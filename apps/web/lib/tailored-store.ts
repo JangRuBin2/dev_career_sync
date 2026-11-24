@@ -26,14 +26,14 @@ export interface TailoredDoc {
 export type TailoredSummary = Pick<TailoredDoc, "id" | "createdAt"> & { company: string; position: string };
 
 const prefix = (userId: string) => `${userPrefix(userId)}resume-tailored/`;
-const token = () => process.env.BLOB_PRIVATE_READ_WRITE_TOKEN;
+const token = () => process.env.BLOB_READ_WRITE_TOKEN;
 const localDir = (userId: string) => path.join(process.cwd(), ".careersync", userId.replace(/[^\w-]/g, ""), "tailored");
 const ID_RE = /^[0-9a-z]+-[0-9a-f]{6}$/;
 
 function backend(): "blob" | "local" {
   if (token()) return "blob";
   if (process.env.NODE_ENV !== "production") return "local";
-  throw new Error("맞춤 이력서를 저장하려면 BLOB_PRIVATE_READ_WRITE_TOKEN 이 필요해요.");
+  throw new Error("맞춤 이력서를 저장하려면 BLOB_READ_WRITE_TOKEN 이 필요해요.");
 }
 
 export function storageLabel(): string {

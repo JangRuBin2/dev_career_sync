@@ -50,7 +50,7 @@ CareerSync 는 **여러 사람이 각자 GitHub 로 가입하고, 자기 Notion 
 ### 1. Vercel 프로젝트
 1. 이 레포를 Import, **Root Directory = `apps/web`**.
 2. **Storage → Neon (Postgres)** 연결 → `DATABASE_URL` 자동 등록. 표는 첫 요청 때 자동으로 만들어져요.
-3. **Storage → Blob** 에서 store 2개: `careersync-private` (**Private**), `careersync-public` (Public) → 토큰을 `BLOB_PRIVATE_READ_WRITE_TOKEN`, `BLOB_PUBLIC_READ_WRITE_TOKEN` 으로.
+3. **Storage → Blob** 에서 store 2개: `careersync-private` (**Private**), `careersync-public` (Public) → 토큰을 `BLOB_READ_WRITE_TOKEN`, `BLOB_PUBLIC_READ_WRITE_TOKEN` 으로.
 4. Fluid compute 켜기 (새 프로젝트는 기본). AI 생성·Notion 셋업 페이지는 최대 300초를 써요.
 
 ### 2. GitHub OAuth App (로그인)

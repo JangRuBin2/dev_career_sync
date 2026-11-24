@@ -62,11 +62,11 @@ async function applyResume(): Promise<string> {
   const pageId = ctx.resumePageId;
   if (!pageId) throw new Error("이력서 페이지가 아직 없어요. 설정에서 Notion 연결을 확인하세요.");
   await repo.replacePageMarkdown(pageId, markdown);
-  if (process.env.BLOB_PRIVATE_READ_WRITE_TOKEN) {
+  if (process.env.BLOB_READ_WRITE_TOKEN) {
     await put(`${userPrefix(ctx.userId)}resume-history/${new Date().toISOString()}.md`, markdown, {
       access: "private",
       contentType: "text/markdown; charset=utf-8",
-      token: process.env.BLOB_PRIVATE_READ_WRITE_TOKEN,
+      token: process.env.BLOB_READ_WRITE_TOKEN,
     });
   }
   return markdown;

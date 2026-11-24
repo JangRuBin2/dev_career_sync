@@ -378,7 +378,7 @@ careersync/
 | `NOTION_DS_*` | web, jobs | 각 DB의 data source ID (setup 결과) |
 | `NOTION_RESUME_PAGE_ID` | web, jobs | 이력서 페이지 |
 | `ANTHROPIC_API_KEY` | jobs, web(공고 맞춤 AI) | 대안. 권장은 로컬 `ant auth login`, Actions 는 WIF (`ANTHROPIC_FEDERATION_RULE_ID` 등, 자동 갱신) |
-| `BLOB_PRIVATE_READ_WRITE_TOKEN` / `BLOB_PUBLIC_READ_WRITE_TOKEN` | web | 두 store 토큰 |
+| `BLOB_READ_WRITE_TOKEN` / `BLOB_PUBLIC_READ_WRITE_TOKEN` | web | 두 store 토큰 |
 | `GITHUB_CLIENT_ID` / `GITHUB_CLIENT_SECRET` / `ALLOWED_GITHUB_ID` | web | OAuth |
 | `SESSION_SECRET` | web | 32자 이상 |
 | `REVALIDATE_SECRET` | web, jobs | 배치 → 캐시 갱신 |

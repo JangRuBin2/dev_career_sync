@@ -12,9 +12,9 @@ import { getAchievements, getProjects } from "@/lib/data";
 import { applyResumeAction } from "../actions";
 
 async function history(userId: string) {
-  if (!process.env.BLOB_PRIVATE_READ_WRITE_TOKEN) return [];
+  if (!process.env.BLOB_READ_WRITE_TOKEN) return [];
   try {
-    const res = await list({ prefix: `${userPrefix(userId)}resume-history/`, token: process.env.BLOB_PRIVATE_READ_WRITE_TOKEN, limit: 20 });
+    const res = await list({ prefix: `${userPrefix(userId)}resume-history/`, token: process.env.BLOB_READ_WRITE_TOKEN, limit: 20 });
     return res.blobs.sort((a, b) => b.pathname.localeCompare(a.pathname));
   } catch {
     return [];
