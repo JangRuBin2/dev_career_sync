@@ -44,6 +44,7 @@ export async function runJobForUser(userId: string, job: JobName, opts: { force?
   const startedAt = new Date();
   const [user, conn, settings] = await Promise.all([getUser(userId), getNotionConnection(userId), getSettings(userId)]);
   if (!user || !conn?.dataSources) return { ran: false, status: "skipped", message: "Notion 연결 전" };
+  if (!isAdmin(user.githubId)) return { ran: false, status: "skipped", message: "허용되지 않은 계정" };
   if (!opts.force && !isDue(job, settings, await lastSuccessfulRun(userId, job), startedAt)) {
     return { ran: false, status: "skipped", message: "아직 실행할 때가 아님" };
   }

@@ -7,7 +7,9 @@ export const DEV_SESSION: Session = { userId: "00000000-0000-4000-8000-000000000
 
 export async function getSession(): Promise<Session | null> {
   if (devBypass()) return DEV_SESSION;
-  return verifySession((await cookies()).get(SESSION_COOKIE)?.value);
+  const session = await verifySession((await cookies()).get(SESSION_COOKIE)?.value);
+  // 1인 전용: 허용 목록에서 빠진 계정의 기존 세션도 무효
+  return session && isAdmin(session.githubId) ? session : null;
 }
 
 /** Server Action / Route 내부에서 한 번 더 확인 (proxy 우회 대비) */

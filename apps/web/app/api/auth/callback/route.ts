@@ -1,8 +1,9 @@
 import { NextResponse, type NextRequest } from "next/server";
+import { isAdmin } from "@/lib/auth";
 import { upsertGithubUser } from "@/lib/db/store";
 import { SESSION_COOKIE, STATE_COOKIE, safeNext, sessionCookieOptions, signSession } from "@/lib/session";
 
-/** GitHub 로그인 → 사용자 생성/갱신 → 세션 쿠키 (누구나 가입 가능) */
+/** GitHub 로그인 → 사용자 생성/갱신 → 세션 쿠키 (1인 전용: ADMIN_GITHUB_IDS 에 있는 계정만) */
 export async function GET(request: NextRequest) {
   const code = request.nextUrl.searchParams.get("code");
   const state = request.nextUrl.searchParams.get("state");
@@ -27,6 +28,7 @@ export async function GET(request: NextRequest) {
   });
   const gh = (await userRes.json()) as { id?: number; login?: string; avatar_url?: string };
   if (!gh.id) return fail(request, "GitHub 사용자 정보를 읽지 못했어요");
+  if (!isAdmin(String(gh.id))) return fail(request, "허용되지 않은 계정이에요");
 
   let user;
   try {
