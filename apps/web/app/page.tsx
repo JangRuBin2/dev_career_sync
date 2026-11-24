@@ -20,7 +20,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ d
       </ul>
       <div className="mt-8 flex flex-wrap gap-2">
         <Link href={session ? "/dashboard" : "/login"} className="inline-flex rounded-lg bg-accent px-4 py-2 text-sm font-medium text-white hover:opacity-90">
-          {session ? "대시보드 열기" : "GitHub 로 시작하기"}
+          {session ? "대시보드 열기" : "GitHub 로 로그인"}
         </Link>
       </div>
       <p className="mt-10 text-xs text-muted">

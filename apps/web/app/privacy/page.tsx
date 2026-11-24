@@ -6,7 +6,7 @@ export const metadata: Metadata = { title: "개인정보처리방침 · CareerSy
 export default function PrivacyPage() {
   return (
     <LegalPage title="개인정보처리방침" effective="2026-11-10">
-      <p>CareerSync(이하 &quot;서비스&quot;)는 이용자의 업무 기록을 이력서·블로그 초안으로 정리하는 도구입니다. 서비스가 처리하는 정보와 그 목적은 다음과 같습니다.</p>
+      <p>CareerSync(이하 &quot;서비스&quot;)는 이용자의 업무 기록을 이력서·블로그 초안으로 정리하는 개인 전용 도구이며, 운영자 본인 계정만 이용할 수 있습니다. 서비스가 처리하는 정보와 그 목적은 다음과 같습니다.</p>
 
       <h2>1. 수집하는 정보</h2>
       <ul>

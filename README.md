@@ -44,7 +44,7 @@ http://localhost:3000/dashboard 에서 샘플 데이터로 대시보드를 볼 �
 > 여러 사용자 흐름(가입 → Notion OAuth → 온보딩 → 설정)을 로컬에서 보려면 Postgres 를 띄우고 `DATABASE_URL`, `ENCRYPTION_KEY`, `SESSION_SECRET`, `NOTION_OAUTH_CLIENT_ID=mock`, `NOTION_OAUTH_CLIENT_SECRET=mock`, `NOTION_BASE_URL=http://localhost:4010`, `DEV_BYPASS_AUTH=1` 로 실행하세요. mock 서버가 OAuth 를 바로 승인하고, 첫 토큰을 일부러 만료시켜 자동 갱신까지 확인할 수 있어요.
 
 ## 배포 (운영자 셋업)
-CareerSync 는 **여러 사람이 각자 GitHub 로 가입하고, 자기 Notion 을 버튼으로 연결해서** 쓰는 서비스예요.
+CareerSync 는 **본인 1인 전용**이에요. GitHub 로 로그인하고 자기 Notion 을 버튼으로 연결해서 써요. `ADMIN_GITHUB_IDS` 에 없는 계정은 로그인·자동 작업에서 제외돼요 (구조는 여러 사용자용 코드를 그대로 씀).
 기록·이력서 본문은 각 사용자의 Notion 에 저장되고, 서버(Neon)에는 계정·연결 토큰(암호화)·설정·사용량만 저장해요.
 
 ### 1. Vercel 프로젝트
@@ -97,7 +97,7 @@ https://www.notion.so/profile/integrations → **Public** integration 생성
 5. GitHub Actions 의 weekly-digest / draft-posts / sync-rss 워크플로는 삭제됐어요 (Vercel Cron 으로 대체). 레포 Secrets 는 정리해도 돼요.
 
 ## 사용자: 시작하기
-1. `GitHub 로 시작하기` → 가입
+1. `GitHub 로 로그인` (`ADMIN_GITHUB_IDS` 에 등록된 계정만)
 2. Notion 에 빈 페이지(예: `CareerSync`) 만들기 → `Notion 연결하기` → 그 페이지 선택
 3. `이 페이지에 준비하기` → DB 7개 + 이력서 페이지 자동 생성 (1분 정도)
 4. 설정에서 이름·금지어·알림 웹훅 입력 → Notion Work Log 에 기록 시작

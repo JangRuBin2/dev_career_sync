@@ -9,7 +9,7 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
     <main className="mx-auto flex min-h-screen max-w-sm flex-col justify-center px-4">
       <div className="rounded-xl border border-line bg-surface p-6">
         <h1 className="text-xl font-bold">CareerSync 로그인</h1>
-        <p className="mt-1 text-sm text-muted">GitHub 계정으로 가입·로그인해요. 처음이면 계정이 자동으로 만들어져요.</p>
+        <p className="mt-1 text-sm text-muted">개인 전용 서비스예요. 등록된 본인 GitHub 계정으로만 로그인할 수 있어요.</p>
         {error && <p className="mt-4 rounded-lg bg-bad-soft px-3 py-2 text-sm text-bad">로그인 실패: {error}</p>}
         <a
           href={`/api/auth/login?next=${encodeURIComponent(next)}`}
