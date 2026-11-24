@@ -1,13 +1,14 @@
-import { revalidateTag } from "next/cache";
 import { NextResponse, type NextRequest } from "next/server";
 import { ALLOWED_IMAGE_TYPES, MAX_UPLOAD_BYTES, putPrivateImage } from "@/lib/blob";
-import { TAGS, getRepo } from "@/lib/data";
+import { requireReady } from "@/lib/context";
+import { TAGS, revalidateUser } from "@/lib/data";
 
 /**
  * 캡처 업로드 (브라우저에서 블러·EXIF 제거·리사이즈를 마친 이미지)
  * multipart: file, caption?, projectId?, recordId?
  */
 export async function POST(request: NextRequest) {
+  const ctx = await requireReady();
   const form = await request.formData();
   const file = form.get("file");
   if (!(file instanceof File)) return NextResponse.json({ error: "file 이 없습니다" }, { status: 400 });
@@ -18,8 +19,8 @@ export async function POST(request: NextRequest) {
   const recordId = (form.get("recordId") as string) || null;
   const caption = (form.get("caption") as string) || "";
 
-  const pathname = await putPrivateImage(file, projectId ?? "unsorted");
-  const id = await getRepo().createImageAttachment({ name: caption || file.name, blobPath: pathname, caption, projectId, recordId });
-  revalidateTag(TAGS.attachments, { expire: 0 });
+  const pathname = await putPrivateImage(ctx.userId, file, projectId ?? "unsorted");
+  const id = await ctx.repo.createImageAttachment({ name: caption || file.name, blobPath: pathname, caption, projectId, recordId });
+  revalidateUser(ctx.userId, [TAGS.attachments]);
   return NextResponse.json({ id, pathname });
 }

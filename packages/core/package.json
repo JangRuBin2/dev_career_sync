@@ -8,7 +8,9 @@
     "./notion": "./src/notion/index.ts",
     "./velog": "./src/velog/index.ts",
     "./llm": "./src/llm/index.ts",
-    "./publish": "./src/publish/index.ts"
+    "./publish": "./src/publish/index.ts",
+    "./tailor": "./src/tailor/index.ts",
+    "./jobs": "./src/jobs/index.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",

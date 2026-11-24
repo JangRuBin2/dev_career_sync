@@ -8,6 +8,16 @@ on:
 jobs:
   check:
     runs-on: ubuntu-latest
+    services:
+      # 웹 DB 계층 테스트(apps/web/test/db.test.ts)용
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: careersync_test
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd pg_isready --health-interval 5s --health-timeout 5s --health-retries 10
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -18,6 +28,8 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm typecheck
       - run: pnpm test
+        env:
+          TEST_DATABASE_URL: postgres://postgres:postgres@localhost:5432/careersync_test
       - run: pnpm build
         env:
           NEXT_TELEMETRY_DISABLED: "1"

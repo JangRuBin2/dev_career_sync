@@ -1,11 +1,11 @@
 import { ActionForm } from "@/components/action-form";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { parseDenylist } from "@careersync/core";
 import { OPT } from "@careersync/core/notion";
 import { buildExport, prePublishCheck } from "@careersync/core/publish";
 import { CopyButton } from "@/components/copy-button";
 import { Badge, Button, Card, CardTitle, Field, PageHeader, formatShortDate } from "@/components/ui";
+import { denylistOf, requireReady } from "@/lib/context";
 import { getPost, getPostMarkdown } from "@/lib/data";
 import { markPublishedAction, savePostBodyAction } from "../../actions";
 
@@ -28,7 +28,7 @@ export default async function PostDetail({ params }: { params: Promise<{ id: str
   const markdown = await getPostMarkdown(id);
 
   const publicHosts = (process.env.PUBLIC_IMAGE_HOSTS ?? "public.blob.vercel-storage.com").split(",").map((s) => s.trim());
-  const check = prePublishCheck(post, markdown, parseDenylist(process.env.DENYLIST), publicHosts);
+  const check = prePublishCheck(post, markdown, denylistOf(await requireReady()), publicHosts);
   const ex = buildExport(post, markdown);
   const blocked = check.leaks.length > 0 || check.nonPublicImages.length > 0;
 

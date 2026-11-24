@@ -1,6 +1,8 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { SESSION_COOKIE, STATE_COOKIE, sessionCookieOptions, signSession } from "@/lib/session";
+import { upsertGithubUser } from "@/lib/db/store";
+import { SESSION_COOKIE, STATE_COOKIE, safeNext, sessionCookieOptions, signSession } from "@/lib/session";
 
+/** GitHub 로그인 → 사용자 생성/갱신 → 세션 쿠키 (누구나 가입 가능) */
 export async function GET(request: NextRequest) {
   const code = request.nextUrl.searchParams.get("code");
   const state = request.nextUrl.searchParams.get("state");
@@ -23,12 +25,19 @@ export async function GET(request: NextRequest) {
   const userRes = await fetch("https://api.github.com/user", {
     headers: { Authorization: `Bearer ${token.access_token}`, Accept: "application/vnd.github+json", "User-Agent": "careersync" },
   });
-  const user = (await userRes.json()) as { id?: number; login?: string };
-  if (!user.id || String(user.id) !== process.env.ALLOWED_GITHUB_ID) return fail(request, "허용되지 않은 계정");
+  const gh = (await userRes.json()) as { id?: number; login?: string; avatar_url?: string };
+  if (!gh.id) return fail(request, "GitHub 사용자 정보를 읽지 못했어요");
 
-  const next = state.split("|")[1] ?? "/dashboard";
-  const res = NextResponse.redirect(new URL(next, request.url));
-  res.cookies.set(SESSION_COOKIE, await signSession({ githubId: String(user.id), login: user.login ?? "" }), sessionCookieOptions);
+  let user;
+  try {
+    user = await upsertGithubUser({ githubId: String(gh.id), login: gh.login ?? "", avatarUrl: gh.avatar_url ?? null });
+  } catch (err) {
+    console.error(err);
+    return fail(request, "계정 저장 실패 (DATABASE_URL 확인)");
+  }
+
+  const res = NextResponse.redirect(new URL(safeNext(state.split("|")[1]), request.url));
+  res.cookies.set(SESSION_COOKIE, await signSession({ userId: user.id, githubId: user.githubId, login: user.login }), sessionCookieOptions);
   res.cookies.delete(STATE_COOKIE);
   return res;
 }

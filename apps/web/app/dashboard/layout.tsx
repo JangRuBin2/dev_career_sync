@@ -9,6 +9,7 @@ const NAV = [
   { href: "/dashboard/posts", label: "포스팅" },
   { href: "/dashboard/resume", label: "이력서" },
   { href: "/dashboard/upload", label: "첨부" },
+  { href: "/dashboard/settings", label: "설정" },
 ];
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {

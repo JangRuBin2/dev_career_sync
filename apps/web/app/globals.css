@@ -113,3 +113,109 @@ html,
 body {
   overflow-x: clip;
 }
+
+/* ───────── 이력서 문서 (미리보기 · 인쇄 공용) ───────── */
+.resume-doc {
+  font-size: 0.9rem;
+  line-height: 1.7;
+}
+.resume-doc h1 {
+  font-size: 1.5rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+.resume-doc h2 {
+  margin-top: 1.75rem;
+  padding-bottom: 0.25rem;
+  border-bottom: 1px solid var(--border);
+  font-size: 1.1rem;
+  font-weight: 700;
+}
+.resume-doc h3 {
+  margin-top: 1.25rem;
+  font-size: 1rem;
+  font-weight: 600;
+}
+.resume-doc p {
+  margin-top: 0.5rem;
+}
+.resume-doc ul {
+  margin-top: 0.5rem;
+  padding-left: 1.25rem;
+  list-style: disc;
+}
+.resume-doc ol {
+  margin-top: 0.5rem;
+  padding-left: 1.25rem;
+  list-style: decimal;
+}
+.resume-doc li + li {
+  margin-top: 0.25rem;
+}
+.resume-doc a {
+  color: var(--accent);
+}
+.resume-doc em {
+  color: var(--muted);
+  font-style: normal;
+  font-size: 0.85em;
+}
+.resume-doc blockquote {
+  margin-top: 0.75rem;
+  padding: 0.5rem 0.75rem;
+  border-left: 3px solid var(--border);
+  color: var(--muted);
+  font-size: 0.85em;
+}
+.resume-doc hr {
+  margin: 1.5rem 0;
+  border-color: var(--border);
+}
+.resume-doc > :first-child {
+  margin-top: 0;
+}
+
+/* ───────── 인쇄 / PDF: .print-area 만 출력 ───────── */
+@media print {
+  :root,
+  :root:not([data-theme="light"]) {
+    --bg: #fff;
+    --surface: #fff;
+    --text: #111;
+    --muted: #555;
+    --border: #ccc;
+    --accent: #111;
+  }
+  @page {
+    size: A4;
+    margin: 16mm 14mm;
+  }
+  /* 문서와 그 조상만 남기고 나머지는 자리도 차지하지 않게 (빈 페이지 방지) */
+  body *:not(.print-area):not(.print-area *):not(:has(.print-area)) {
+    display: none !important;
+  }
+  /* 조상(카드·그리드)의 테두리·여백·배경은 걷어낸다 */
+  *:has(.print-area) {
+    display: block !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    border: 0 !important;
+    box-shadow: none !important;
+    background: transparent !important;
+    max-width: none !important;
+    min-height: 0 !important;
+  }
+  .resume-doc {
+    font-size: 10.5pt;
+  }
+  .resume-doc h2,
+  .resume-doc h3 {
+    break-after: avoid;
+  }
+  .resume-doc li {
+    break-inside: avoid;
+  }
+  .resume-doc a {
+    text-decoration: none;
+  }
+}
