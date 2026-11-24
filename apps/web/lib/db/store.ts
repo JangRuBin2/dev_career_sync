@@ -253,7 +253,7 @@ export async function releaseAiUsage(id: number): Promise<void> {
 
 // ---------- 배치 기록 ----------
 
-export type JobName = "weekly-digest" | "draft-posts" | "sync-rss";
+export type JobName = "weekly-digest" | "draft-posts" | "sync-rss" | "collect-github";
 export type JobStatus = "ok" | "skipped" | "error";
 
 export async function recordJobRun(userId: string, job: JobName, status: JobStatus, message: string, startedAt: Date): Promise<void> {

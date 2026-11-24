@@ -10,7 +10,8 @@
     "./llm": "./src/llm/index.ts",
     "./publish": "./src/publish/index.ts",
     "./tailor": "./src/tailor/index.ts",
-    "./jobs": "./src/jobs/index.ts"
+    "./jobs": "./src/jobs/index.ts",
+    "./github": "./src/github/index.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",

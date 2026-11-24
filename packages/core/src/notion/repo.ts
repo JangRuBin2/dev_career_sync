@@ -1,7 +1,8 @@
 import { collectPaginatedAPI, isFullPage, type Client } from "./sdk";
 import type { DataSourceIds } from "./client";
 import { P, type AssignmentStatus, type DbKey, type PostMode, type PostStatus, type Visibility } from "./schema";
-import { write as w, type Props } from "./props";
+import { read as r, write as w, type Props } from "./props";
+import { addMissingProperties } from "./setup";
 import * as m from "./mappers";
 import type { Achievement, Attachment, Metric, Post, Project, RecordEntry, WorkLog } from "./types";
 
@@ -78,6 +79,38 @@ export class CareerRepo {
       [k.processed]: w.checkbox(false),
       ...(input.type ? { [k.type]: w.select(input.type) } : {}),
       ...(input.tags ? { [k.tags]: w.multiSelect(input.tags) } : {}),
+      ...(input.projectId ? { [k.project]: w.relation([input.projectId]) } : {}),
+    });
+  }
+
+  /** GitHub 자동 수집 전: Work Log 에 출처·출처 키·링크 속성이 없으면 만든다 (예전에 만든 DB 대비) */
+  async ensureWorkLogSourceProps(): Promise<string[]> {
+    return addMissingProperties(this.notion, this.ds.workLog, "workLog");
+  }
+
+  /** 이미 넣은 GitHub 항목의 출처 키 (중복 방지). since 이후 날짜의 행만 본다 */
+  async listWorkLogSourceKeys(since: string): Promise<Set<string>> {
+    const k = P.workLog;
+    const rows = await this.queryAll("workLog", {
+      and: [
+        { property: k.source, select: { equals: "GitHub" } },
+        { property: k.date, date: { on_or_after: since } },
+      ],
+    } as Filter);
+    return new Set(rows.map((row) => r.text(row.properties, k.sourceKey)).filter(Boolean));
+  }
+
+  /** GitHub 에서 모은 활동 1건 → Work Log 1행 (처리됨=false 라 다음 주간 정리에 들어간다) */
+  async createGithubWorkLog(input: { title: string; date: string; content: string; sourceKey: string; link: string; projectId?: string | null }) {
+    const k = P.workLog;
+    return this.create("workLog", {
+      [k.title]: w.title(input.title),
+      [k.date]: w.date(input.date),
+      [k.content]: w.text(input.content),
+      [k.processed]: w.checkbox(false),
+      [k.source]: w.select("GitHub"),
+      [k.sourceKey]: w.text(input.sourceKey),
+      [k.link]: w.url(input.link),
       ...(input.projectId ? { [k.project]: w.relation([input.projectId]) } : {}),
     });
   }

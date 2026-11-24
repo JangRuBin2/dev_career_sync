@@ -81,6 +81,7 @@ https://www.notion.so/profile/integrations → **Public** integration 생성
 
 | 경로 | 시각 (KST) | 하는 일 |
 |---|---|---|
+| `/api/cron/collect-github` | 매일 17:30 | GitHub App 이 설치된 레포의 내 활동(어제까지) → Work Log 자동 추가 (아래 6번) |
 | `/api/cron/weekly-digest` | 매일 18:00 확인 → 사용자별 7일마다 (처음은 금요일) | 미처리 Work Log → 마스킹 → Claude 정리 → Records/Metrics(초안), 성과 후보, 글감 |
 | `/api/cron/draft-posts` | 매일 10:17 | 포스팅 주기가 된 사용자만 초안 작성 → 목표일 → 알림 |
 | `/api/cron/sync-rss` | 매일 23:41 | velog 아이디를 등록한 사용자의 RSS → 발행 URL 기록 |
@@ -88,6 +89,19 @@ https://www.notion.so/profile/integrations → **Public** integration 생성
 - Notion API 한도를 지키려고 사용자를 순서대로 처리하고, 시간 안에 못 끝낸 사용자는 다음 실행에서 이어서 해요.
 - 사용자는 설정 화면에서 "지금 실행" 할 수 있어요 (AI 한도는 그대로 적용).
 - AI 한도를 다 쓰면 그 주기는 건너뛰고 알림을 보내요.
+
+### 6. GitHub 활동 자동 수집 (읽기 전용 GitHub App)
+고른 레포의 머지된 PR · 커밋 · 릴리스/태그 · 이슈(내가 만든 것)를 매일 Work Log 로 넣어요. 코드는 읽지 않고 제목·본문·메시지·변경 줄 수만 써요.
+1. GitHub → Settings → Developer settings → **GitHub Apps → New GitHub App**
+   - 이름: 아무거나 (예 `careersync-<아이디>`), Homepage: 앱 주소
+   - Webhook: **Active 해제**
+   - Repository permissions: **Contents · Issues · Pull requests = Read-only** (Metadata 는 자동)
+   - Where can this GitHub App be installed: **Only on this account**
+2. 만든 뒤 **App ID** 확인, **Generate a private key** 로 `.pem` 다운로드
+3. 왼쪽 **Install App** → 내 계정 → **Only select repositories** 로 모을 레포 선택 (나중에 바꿀 수 있음)
+4. 환경변수 `GITHUB_APP_ID`, `GITHUB_APP_PRIVATE_KEY`(.pem 내용) 등록
+5. 설정 화면 "GitHub 수집 지금 실행" 으로 확인. 첫 실행은 최근 14일, 오늘 활동은 다음 날 들어가요.
+   Projects 의 `저장소 URL` 이 레포 주소와 같으면 그 프로젝트에 자동 연결돼요.
 
 ### 1인용에서 옮겨 오기 (기존 데이터 유지)
 1. 위 셋업 후 본인 GitHub 로 로그인 → **Notion 연결** 에서 기존 CareerSync 상위 페이지를 선택 → **"기존 CareerSync DB 를 찾아서 연결했어요"** (DB 7개 + 이력서 페이지를 제목으로 찾아 재사용)

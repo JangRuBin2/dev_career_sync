@@ -30,6 +30,25 @@ function basicConfig(spec: DbSpec[string]): Record<string, unknown> | null {
 }
 
 /**
+ * 나중에 스키마에 추가된 기본 속성(relation·formula 제외)이 기존 DB 에 없으면 만든다.
+ * 이미 있는 속성은 건드리지 않는다. 추가한 속성 이름을 돌려준다.
+ */
+export async function addMissingProperties(notion: Client, dataSourceId: string, key: DbKey): Promise<string[]> {
+  const current = (await notion.dataSources.retrieve({ data_source_id: dataSourceId })) as unknown as {
+    properties: Record<string, unknown>;
+  };
+  const properties: Record<string, unknown> = {};
+  for (const [name, spec] of Object.entries(DB_SPECS[key])) {
+    if (name in current.properties) continue;
+    const cfg = basicConfig(spec);
+    if (cfg) properties[name] = cfg;
+  }
+  const added = Object.keys(properties);
+  if (added.length) await notion.dataSources.update({ data_source_id: dataSourceId, properties } as DsUpdateArgs);
+  return added;
+}
+
+/**
  * 상위 페이지 아래에 CareerSync DB 7개와 이력서 페이지를 만든다.
  * 1) 기본 속성으로 DB 생성 → 2) relation 추가(+역방향 이름 지정) → 3) formula 추가 → 4) 이력서 페이지
  */

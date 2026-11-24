@@ -1,6 +1,7 @@
 import "server-only";
 import { notify, parseDenylist } from "@careersync/core";
-import { draftPostsJob, syncRssJob, weeklyDigestJob, type JobContext, type JobResult } from "@careersync/core/jobs";
+import { githubAppFromEnv } from "@careersync/core/github";
+import { collectGithubJob, draftPostsJob, syncRssJob, weeklyDigestJob, type JobContext, type JobResult } from "@careersync/core/jobs";
 import { createAnthropic } from "@careersync/core/llm";
 import { CareerRepo } from "@careersync/core/notion";
 import { AiQuotaError, aiMonthlyLimit } from "./ai";
@@ -19,8 +20,13 @@ import {
 } from "./db/store";
 import { notionForUser } from "./notion-oauth";
 
-export const JOB_NAMES: JobName[] = ["weekly-digest", "draft-posts", "sync-rss"];
-export const JOB_LABEL: Record<JobName, string> = { "weekly-digest": "주간 정리", "draft-posts": "블로그 초안", "sync-rss": "velog 동기화" };
+export const JOB_NAMES: JobName[] = ["weekly-digest", "draft-posts", "sync-rss", "collect-github"];
+export const JOB_LABEL: Record<JobName, string> = {
+  "weekly-digest": "주간 정리",
+  "draft-posts": "블로그 초안",
+  "sync-rss": "velog 동기화",
+  "collect-github": "GitHub 수집",
+};
 
 const HOUR = 3600_000;
 const isFridayKst = (d: Date) => new Date(d.getTime() + 9 * HOUR).getUTCDay() === 5;
@@ -33,7 +39,15 @@ export function isDue(job: JobName, settings: UserSettings, lastOk: Date | null,
     return lastOk ? now.getTime() - lastOk.getTime() >= 6.5 * 24 * HOUR : isFridayKst(now);
   }
   if (job === "sync-rss" && !settings.velogUsername) return false;
+  if (job === "collect-github" && !githubAppFromEnv()) return false;
   return !lastOk || now.getTime() - lastOk.getTime() >= 20 * HOUR;
+}
+
+/** GitHub App 환경변수가 없으면 건너뜀 ("지금 실행" 을 눌렀을 때 안내) */
+async function collectGithub(ctx: JobContext, login: string, lastOk: Date | null): Promise<JobResult> {
+  const app = githubAppFromEnv();
+  if (!app) return { status: "skipped", message: "GitHub App 이 설정되지 않았어요 (GITHUB_APP_ID · GITHUB_APP_PRIVATE_KEY)" };
+  return collectGithubJob(ctx, { app, login, lastRun: lastOk });
 }
 
 /**
@@ -45,7 +59,8 @@ export async function runJobForUser(userId: string, job: JobName, opts: { force?
   const [user, conn, settings] = await Promise.all([getUser(userId), getNotionConnection(userId), getSettings(userId)]);
   if (!user || !conn?.dataSources) return { ran: false, status: "skipped", message: "Notion 연결 전" };
   if (!isAdmin(user.githubId)) return { ran: false, status: "skipped", message: "허용되지 않은 계정" };
-  if (!opts.force && !isDue(job, settings, await lastSuccessfulRun(userId, job), startedAt)) {
+  const lastOk = await lastSuccessfulRun(userId, job);
+  if (!opts.force && !isDue(job, settings, lastOk, startedAt)) {
     return { ran: false, status: "skipped", message: "아직 실행할 때가 아님" };
   }
 
@@ -75,7 +90,9 @@ export async function runJobForUser(userId: string, job: JobName, opts: { force?
         ? await weeklyDigestJob(ctx)
         : job === "draft-posts"
           ? await draftPostsJob(ctx, { intervalDays: settings.postIntervalDays, leadDays: settings.postLeadDays })
-          : await syncRssJob(ctx, { velogUsername: settings.velogUsername });
+          : job === "collect-github"
+            ? await collectGithub(ctx, user.login, lastOk)
+            : await syncRssJob(ctx, { velogUsername: settings.velogUsername });
     await recordJobRun(userId, job, result.status, result.message, startedAt);
     return { ran: true, ...result };
   } catch (err) {

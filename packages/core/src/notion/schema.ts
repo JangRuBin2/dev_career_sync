@@ -49,6 +49,10 @@ export const P = {
     blogIdea: "블로그소재",
     processed: "처리됨",
     attachments: "첨부",
+    // GitHub 자동 수집 (2026-11-24 추가 — 기존 DB 에는 수집 작업이 채운다)
+    source: "출처",
+    sourceKey: "출처 키",
+    link: "링크",
   },
   projects: {
     name: "이름",
@@ -163,6 +167,7 @@ export const OPT = {
   platform: ["velog", "티스토리", "네이버 블로그", "dev.to", "기타"],
   attachmentKind: ["이미지", "링크"],
   visibility: ["비공개", "공개가능"],
+  logSource: ["수동", "GitHub"],
 } as const;
 
 export type WorkType = (typeof OPT.workType)[number];
@@ -210,6 +215,9 @@ export const DB_SPECS: Record<DbKey, DbSpec> = {
     [P.workLog.blogIdea]: { type: "checkbox" },
     [P.workLog.processed]: { type: "checkbox" },
     [P.workLog.attachments]: { type: "relation", target: "attachments", syncedName: P.attachments.workLog },
+    [P.workLog.source]: { type: "select", options: OPT.logSource },
+    [P.workLog.sourceKey]: { type: "rich_text" },
+    [P.workLog.link]: { type: "url" },
   },
   projects: {
     [P.projects.name]: { type: "title" },

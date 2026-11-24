@@ -9,6 +9,15 @@ import type { CareerRepo, PostMode } from "../notion";
 import { findLeaks, maskText, type DenyRule } from "../sanitize";
 import { addDays, isoWeekLabel, kstDate } from "../time";
 import { fetchVelogFeed, normalizeTitle } from "../velog";
+import {
+  buildGithubWorkLogs,
+  collectRepoActivity,
+  githubApi,
+  installationToken,
+  listInstalledRepos,
+  normalizeRepoUrl,
+  type GithubAppConfig,
+} from "../github";
 
 export type JobTag = "projects" | "records" | "metrics" | "achievements" | "posts" | "attachments" | "worklogs";
 
@@ -168,6 +177,62 @@ export async function draftPostsJob(ctx: JobContext, opts: DraftOptions): Promis
     `✍️ 블로그 초안 준비: "${draft.title}" (목표일 ${publishDate})\n👉 대시보드 포스팅에서 검토하고 Markdown/HTML 을 복사해 올려 주세요.${leaks.length ? `\n⚠️ 마스킹 확인: ${leaks.join(", ")}` : ""}`,
   );
   return { status: "ok", message: `초안 "${draft.title}" (목표일 ${publishDate})` };
+}
+
+// ---------- GitHub 활동 수집 ----------
+
+export interface CollectGithubOptions {
+  app: GithubAppConfig;
+  /** 활동을 모을 GitHub 계정 (로그인한 본인) */
+  login: string;
+  /** 마지막 성공 실행. 없으면 최근 14일부터 */
+  lastRun: Date | null;
+  now?: Date;
+  fetchImpl?: typeof fetch;
+}
+
+const FIRST_RUN_DAYS = 14;
+const kstMidnightIso = (day: string) => new Date(`${day}T00:00:00+09:00`).toISOString();
+
+/** 앱이 설치된 레포의 내 활동(어제까지 끝난 날) → Work Log 행 (처리됨=false 라 주간 정리가 이어서 정리) */
+export async function collectGithubJob(ctx: JobContext, opts: CollectGithubOptions): Promise<JobResult> {
+  const { repo } = ctx;
+  const log = ctx.log ?? console.log;
+  const today = kstDate(opts.now);
+  // 마지막 실행 하루 전부터 다시 본다 (겹치는 항목은 출처 키로 건너뜀). 오늘은 아직 안 끝났으니 어제까지만.
+  const sinceDay = opts.lastRun ? addDays(kstDate(opts.lastRun), -1) : addDays(today, -FIRST_RUN_DAYS);
+  if (sinceDay >= today) return { status: "skipped", message: "새로 모을 기간 없음" };
+  const window = { since: kstMidnightIso(sinceDay), until: kstMidnightIso(today) };
+
+  if (!ctx.dryRun) {
+    const added = await repo.ensureWorkLogSourceProps();
+    if (added.length) log(`Work Log 속성 추가: ${added.join(", ")}`);
+  }
+
+  const api = githubApi(await installationToken(opts.app, opts.fetchImpl), opts.fetchImpl);
+  const repos = await listInstalledRepos(api);
+  if (repos.length === 0) return { status: "skipped", message: "GitHub App 이 설치된 레포 없음" };
+
+  const activity = [];
+  for (const r of repos) activity.push(await collectRepoActivity(api, r, opts.login, window));
+
+  const projects = await repo.listProjects();
+  const projectIdByRepoUrl = new Map(projects.filter((p) => p.repoUrl).map((p) => [normalizeRepoUrl(p.repoUrl!), p.id]));
+  const existingKeys = ctx.dryRun ? new Set<string>() : await repo.listWorkLogSourceKeys(sinceDay);
+  const entries = buildGithubWorkLogs(activity, { existingKeys, projectIdByRepoUrl });
+
+  const range = `${sinceDay} ~ ${addDays(today, -1)}`;
+  if (ctx.dryRun) {
+    log(JSON.stringify(entries, null, 2));
+    return { status: "skipped", message: `dry-run: ${range} 레포 ${repos.length}개 · 새 기록 ${entries.length}건 (Notion 에 쓰지 않음)` };
+  }
+  for (const e of entries) await repo.createGithubWorkLog(e);
+  if (entries.length === 0) return { status: "skipped", message: `${range} 레포 ${repos.length}개 · 새 활동 없음` };
+
+  await ctx.revalidate(["worklogs"]);
+  const message = `${range} 레포 ${repos.length}개 · Work Log ${entries.length}건 추가`;
+  await ctx.notify(`🐙 GitHub 활동을 Work Log 에 넣었어요: ${message}\n다음 주간 정리 때 성과 후보로 정리돼요.`);
+  return { status: "ok", message };
 }
 
 // ---------- velog RSS 동기화 ----------

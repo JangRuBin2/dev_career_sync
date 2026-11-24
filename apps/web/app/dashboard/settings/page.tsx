@@ -117,7 +117,7 @@ export default async function SettingsPage() {
         <Card className="mt-4">
           <CardTitle>자동 작업</CardTitle>
           <div className="flex flex-wrap gap-2">
-            {(["weekly-digest", "draft-posts", "sync-rss"] as const).map((job) => (
+            {(["weekly-digest", "draft-posts", "sync-rss", "collect-github"] as const).map((job) => (
               <ActionForm key={job} action={runJobNowAction} showOk>
                 <input type="hidden" name="job" value={job} />
                 <Button variant="secondary">{JOB_LABEL[job]} 지금 실행</Button>
